@@ -7,7 +7,6 @@ export declare class ServerGenerator {
     private server;
     constructor(config: MockServerConfig);
     private setupMiddleware;
-    private logRequest;
     private setupRoutes;
     private setupRoute;
     start(): Promise<void>;

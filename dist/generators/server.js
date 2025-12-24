@@ -9,12 +9,17 @@ const express_1 = __importDefault(require("express"));
 const cors_1 = __importDefault(require("cors"));
 const schema_1 = require("../parsers/schema");
 const errors_1 = require("../errors");
+const logger_1 = require("../utils/logger");
 class ServerGenerator {
     constructor(config) {
         this.server = null;
         this.config = config;
         this.app = (0, express_1.default)();
         this.parser = new schema_1.SchemaParser();
+        // Set log level from config
+        if (config.server.logLevel) {
+            (0, logger_1.setLogLevel)(config.server.logLevel);
+        }
         this.setupMiddleware();
         this.setupRoutes();
     }
@@ -22,29 +27,64 @@ class ServerGenerator {
         // Enable CORS if configured
         if (this.config.server.cors) {
             this.app.use((0, cors_1.default)());
+            logger_1.log.debug('CORS enabled', { module: 'server' });
         }
-        // JSON body parsing
-        this.app.use(express_1.default.json());
-        // Request logging
+        // JSON body parsing with size limit for security
+        this.app.use(express_1.default.json({ limit: '10mb' }));
+        // Request logging middleware
         this.app.use((req, res, next) => {
-            this.logRequest(req);
+            const startTime = Date.now();
+            // Log request
+            logger_1.log.debug(`Incoming request`, {
+                module: 'server',
+                method: req.method,
+                path: req.path,
+                query: req.query,
+                ip: req.ip
+            });
+            // Override res.json to capture status code and timing
+            const originalJson = res.json.bind(res);
+            res.json = function (body) {
+                const duration = Date.now() - startTime;
+                logger_1.log.request(req.method, req.path, res.statusCode, duration);
+                return originalJson(body);
+            };
             next();
         });
-    }
-    logRequest(req) {
-        const logLevel = this.config.server.logLevel || 'info';
-        const logLevels = ['error', 'warn', 'info', 'debug'];
-        if (logLevels.indexOf(logLevel) >= logLevels.indexOf('info')) {
-            console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
-        }
+        // Error handling middleware
+        this.app.use((err, req, res, next) => {
+            logger_1.log.error('Request error', {
+                module: 'server',
+                error: err,
+                method: req.method,
+                path: req.path
+            });
+            res.status(500).json({
+                error: 'Internal Server Error',
+                message: this.config.server.logLevel === 'debug' ? err.message : 'An error occurred'
+            });
+        });
     }
     setupRoutes() {
         // Setup each route from the config
         Object.entries(this.config.routes).forEach(([_, routeConfig]) => {
             this.setupRoute(routeConfig);
         });
+        // Health check endpoint
+        this.app.get('/health', (req, res) => {
+            res.json({
+                status: 'healthy',
+                timestamp: new Date().toISOString(),
+                uptime: process.uptime()
+            });
+        });
         // 404 handler
         this.app.use((req, res) => {
+            logger_1.log.warn('Route not found', {
+                module: 'server',
+                method: req.method,
+                path: req.path
+            });
             res.status(404).json({
                 error: 'Not Found',
                 message: `No route found for ${req.method} ${req.path}`
@@ -54,6 +94,7 @@ class ServerGenerator {
     setupRoute(routeConfig) {
         const { path, method, response, statusCode = 200, delay = 0, headers = {} } = routeConfig;
         const routeHandler = async (req, res, next) => {
+            const startTime = Date.now();
             try {
                 // Apply delay if specified
                 if (delay > 0) {
@@ -77,6 +118,13 @@ class ServerGenerator {
                     // For other types, send as is
                     res.status(statusCode).send(response);
                 }
+                const duration = Date.now() - startTime;
+                logger_1.log.debug('Route handler completed', {
+                    module: 'server',
+                    path,
+                    method,
+                    duration
+                });
             }
             catch (error) {
                 next(error);
@@ -100,30 +148,49 @@ class ServerGenerator {
                 this.app.patch(path, routeHandler);
                 break;
             default:
-                throw new Error(`Unsupported HTTP method: ${method}`);
+                throw new errors_1.ServerError(`Unsupported HTTP method: ${method}`, { method });
         }
+        logger_1.log.debug(`Route registered`, {
+            module: 'server',
+            method: method.toUpperCase(),
+            path
+        });
     }
     async start() {
         return new Promise((resolve, reject) => {
             const port = this.config.server.port || 3000;
             this.server = this.app.listen(port, () => {
-                console.log(`Mock server is running on http://localhost:${port}`);
-                // Log all available routes
+                logger_1.log.info(`Mock server started`, {
+                    module: 'server',
+                    port,
+                    url: `http://localhost:${port}`
+                });
+                // Log all available routes in debug mode
                 if (this.config.server.logLevel === 'debug') {
-                    console.log('\nAvailable routes:');
-                    Object.entries(this.config.routes).forEach(([path, config]) => {
-                        console.log(`  ${config.method.toUpperCase()} ${path}`);
+                    logger_1.log.debug('Available routes:', {
+                        module: 'server',
+                        routes: Object.entries(this.config.routes).map(([path, config]) => `${config.method.toUpperCase()} ${path}`)
                     });
-                    console.log('');
                 }
                 resolve();
             });
             this.server.on('error', (error) => {
                 if (error.code === 'EADDRINUSE') {
-                    reject(new errors_1.PortError(`Port ${port} is already in use`, port));
+                    const portError = new errors_1.PortError(`Port ${port} is already in use`, port);
+                    logger_1.log.error('Failed to start server', {
+                        module: 'server',
+                        error: portError,
+                        port
+                    });
+                    reject(portError);
                 }
                 else {
-                    reject(error);
+                    logger_1.log.error('Server error', {
+                        module: 'server',
+                        error,
+                        port
+                    });
+                    reject(new errors_1.ServerError(error.message, { originalError: error }));
                 }
             });
         });
@@ -138,10 +205,15 @@ class ServerGenerator {
         return new Promise((resolve, reject) => {
             this.server.close((err) => {
                 if (err) {
-                    reject(err);
+                    logger_1.log.error('Error stopping server', {
+                        module: 'server',
+                        error: err
+                    });
+                    reject(new errors_1.ServerError('Failed to stop server', { originalError: err }));
                 }
                 else {
                     this.server = null;
+                    logger_1.log.info('Server stopped', { module: 'server' });
                     resolve();
                 }
             });
@@ -151,9 +223,13 @@ class ServerGenerator {
      * Restart the server with new configuration
      */
     async restart(newConfig) {
+        logger_1.log.info('Restarting server', { module: 'server' });
         await this.stop();
         if (newConfig) {
             this.config = newConfig;
+            if (newConfig.server.logLevel) {
+                (0, logger_1.setLogLevel)(newConfig.server.logLevel);
+            }
             this.app = (0, express_1.default)();
             this.setupMiddleware();
             this.setupRoutes();
@@ -188,11 +264,18 @@ class ServerGenerator {
                 'get:/api/data': {
                     path: '/api/data',
                     method: 'get',
-                    response: (req) => ({
-                        message: 'This is a mock response',
-                        timestamp: new Date().toISOString(),
-                        data: schema_1.SchemaParser.parse(schema)
-                    })
+                    response: (req) => {
+                        const data = schema_1.SchemaParser.parse(schema);
+                        logger_1.log.debug('Generated mock data', {
+                            module: 'schema-parser',
+                            schema: schema.title || 'untitled'
+                        });
+                        return {
+                            message: 'This is a mock response',
+                            timestamp: new Date().toISOString(),
+                            data
+                        };
+                    }
                 },
                 'post:/api/data': {
                     path: '/api/data',

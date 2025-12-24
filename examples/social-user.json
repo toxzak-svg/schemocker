@@ -1,0 +1,83 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Social Media User Profile",
+  "description": "User profile schema for social media applications",
+  "type": "object",
+  "properties": {
+    "userId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Unique user identifier"
+    },
+    "username": {
+      "type": "string",
+      "pattern": "^[a-zA-Z0-9_]{3,20}$",
+      "description": "Username (3-20 alphanumeric characters)"
+    },
+    "email": {
+      "type": "string",
+      "format": "email",
+      "description": "User email address"
+    },
+    "profile": {
+      "type": "object",
+      "properties": {
+        "displayName": {
+          "type": "string",
+          "description": "Public display name"
+        },
+        "bio": {
+          "type": "string",
+          "maxLength": 160,
+          "description": "User biography (max 160 chars)"
+        },
+        "avatar": {
+          "type": "string",
+          "format": "uri",
+          "description": "Profile picture URL"
+        },
+        "location": {
+          "type": "string",
+          "description": "User location"
+        },
+        "website": {
+          "type": "string",
+          "format": "uri",
+          "description": "Personal website URL"
+        }
+      },
+      "required": ["displayName"]
+    },
+    "stats": {
+      "type": "object",
+      "properties": {
+        "followers": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of followers"
+        },
+        "following": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of users following"
+        },
+        "posts": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Total number of posts"
+        }
+      },
+      "required": ["followers", "following", "posts"]
+    },
+    "verified": {
+      "type": "boolean",
+      "description": "Whether user is verified"
+    },
+    "joinedAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Account creation timestamp"
+    }
+  },
+  "required": ["userId", "username", "email", "profile", "stats", "verified", "joinedAt"]
+}

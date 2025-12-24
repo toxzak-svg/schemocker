@@ -1,0 +1,76 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Task Management System",
+  "description": "Task schema for project management applications",
+  "type": "object",
+  "properties": {
+    "taskId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Unique task identifier"
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200,
+      "description": "Task title"
+    },
+    "description": {
+      "type": "string",
+      "description": "Detailed task description"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["todo", "in-progress", "review", "done"],
+      "description": "Current task status"
+    },
+    "priority": {
+      "type": "string",
+      "enum": ["low", "medium", "high", "urgent"],
+      "description": "Task priority level"
+    },
+    "assignee": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Assignee user ID"
+        },
+        "name": {
+          "type": "string",
+          "description": "Assignee name"
+        },
+        "email": {
+          "type": "string",
+          "format": "email",
+          "description": "Assignee email"
+        }
+      },
+      "required": ["id", "name", "email"]
+    },
+    "dueDate": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Task due date"
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Task tags for organization"
+    },
+    "createdAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Task creation timestamp"
+    },
+    "updatedAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Last update timestamp"
+    }
+  },
+  "required": ["taskId", "title", "status", "priority", "createdAt", "updatedAt"]
+}

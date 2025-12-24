@@ -1,0 +1,71 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "E-commerce Product API",
+  "description": "Complete product schema for e-commerce applications",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Unique product identifier"
+    },
+    "name": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 100,
+      "description": "Product name"
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 500,
+      "description": "Detailed product description"
+    },
+    "price": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 10000,
+      "multipleOf": 0.01,
+      "description": "Product price in USD"
+    },
+    "category": {
+      "type": "string",
+      "enum": ["Electronics", "Clothing", "Books", "Home", "Sports"],
+      "description": "Product category"
+    },
+    "inStock": {
+      "type": "boolean",
+      "description": "Whether product is currently in stock"
+    },
+    "rating": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 5,
+      "description": "Average customer rating"
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "maxItems": 5,
+      "description": "Product tags for search and filtering"
+    },
+    "images": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "format": "uri"
+      },
+      "minItems": 1,
+      "maxItems": 5,
+      "description": "Product image URLs"
+    },
+    "createdAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Product creation timestamp"
+    }
+  },
+  "required": ["id", "name", "price", "category", "inStock"]
+}
