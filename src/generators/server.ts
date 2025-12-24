@@ -3,7 +3,8 @@ import cors from 'cors';
 import { Server } from 'http';
 import { ServerOptions, RouteConfig, MockServerConfig } from '../types';
 import { SchemaParser } from '../parsers/schema';
-import { PortError } from '../errors';
+import { PortError, ServerError } from '../errors';
+import { log, setLogLevel } from '../utils/logger';
 
 export class ServerGenerator {
   private app: Application;
@@ -15,6 +16,12 @@ export class ServerGenerator {
     this.config = config;
     this.app = express();
     this.parser = new SchemaParser();
+    
+    // Set log level from config
+    if (config.server.logLevel) {
+      setLogLevel(config.server.logLevel);
+    }
+    
     this.setupMiddleware();
     this.setupRoutes();
   }
@@ -23,25 +30,50 @@ export class ServerGenerator {
     // Enable CORS if configured
     if (this.config.server.cors) {
       this.app.use(cors());
+      log.debug('CORS enabled', { module: 'server' });
     }
 
-    // JSON body parsing
-    this.app.use(express.json());
+    // JSON body parsing with size limit for security
+    this.app.use(express.json({ limit: '10mb' }));
 
-    // Request logging
+    // Request logging middleware
     this.app.use((req: Request, res: Response, next: NextFunction) => {
-      this.logRequest(req);
+      const startTime = Date.now();
+      
+      // Log request
+      log.debug(`Incoming request`, {
+        module: 'server',
+        method: req.method,
+        path: req.path,
+        query: req.query,
+        ip: req.ip
+      });
+
+      // Override res.json to capture status code and timing
+      const originalJson = res.json.bind(res);
+      res.json = function(body: any) {
+        const duration = Date.now() - startTime;
+        log.request(req.method, req.path, res.statusCode, duration);
+        return originalJson(body);
+      };
+
       next();
     });
-  }
 
-  private logRequest(req: Request): void {
-    const logLevel = this.config.server.logLevel || 'info';
-    const logLevels = ['error', 'warn', 'info', 'debug'];
-    
-    if (logLevels.indexOf(logLevel) >= logLevels.indexOf('info')) {
-      console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
-    }
+    // Error handling middleware
+    this.app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
+      log.error('Request error', {
+        module: 'server',
+        error: err,
+        method: req.method,
+        path: req.path
+      });
+      
+      res.status(500).json({
+        error: 'Internal Server Error',
+        message: this.config.server.logLevel === 'debug' ? err.message : 'An error occurred'
+      });
+    });
   }
 
   private setupRoutes(): void {
@@ -50,8 +82,23 @@ export class ServerGenerator {
       this.setupRoute(routeConfig);
     });
 
+    // Health check endpoint
+    this.app.get('/health', (req: Request, res: Response) => {
+      res.json({
+        status: 'healthy',
+        timestamp: new Date().toISOString(),
+        uptime: process.uptime()
+      });
+    });
+
     // 404 handler
     this.app.use((req: Request, res: Response) => {
+      log.warn('Route not found', {
+        module: 'server',
+        method: req.method,
+        path: req.path
+      });
+      
       res.status(404).json({
         error: 'Not Found',
         message: `No route found for ${req.method} ${req.path}`
@@ -61,7 +108,10 @@ export class ServerGenerator {
 
   private setupRoute(routeConfig: RouteConfig): void {
     const { path, method, response, statusCode = 200, delay = 0, headers = {} } = routeConfig;
+    
     const routeHandler = async (req: Request, res: Response, next: NextFunction) => {
+      const startTime = Date.now();
+      
       try {
         // Apply delay if specified
         if (delay > 0) {
@@ -85,6 +135,14 @@ export class ServerGenerator {
           // For other types, send as is
           res.status(statusCode).send(response);
         }
+        
+        const duration = Date.now() - startTime;
+        log.debug('Route handler completed', {
+          module: 'server',
+          path,
+          method,
+          duration
+        });
       } catch (error) {
         next(error);
       }
@@ -108,8 +166,14 @@ export class ServerGenerator {
         this.app.patch(path, routeHandler);
         break;
       default:
-        throw new Error(`Unsupported HTTP method: ${method}`);
+        throw new ServerError(`Unsupported HTTP method: ${method}`, { method });
     }
+    
+    log.debug(`Route registered`, {
+      module: 'server',
+      method: method.toUpperCase(),
+      path
+    });
   }
 
   public async start(): Promise<void> {
@@ -117,15 +181,20 @@ export class ServerGenerator {
       const port = this.config.server.port || 3000;
       
       this.server = this.app.listen(port, () => {
-        console.log(`Mock server is running on http://localhost:${port}`);
+        log.info(`Mock server started`, {
+          module: 'server',
+          port,
+          url: `http://localhost:${port}`
+        });
         
-        // Log all available routes
+        // Log all available routes in debug mode
         if (this.config.server.logLevel === 'debug') {
-          console.log('\nAvailable routes:');
-          Object.entries(this.config.routes).forEach(([path, config]) => {
-            console.log(`  ${config.method.toUpperCase()} ${path}`);
+          log.debug('Available routes:', {
+            module: 'server',
+            routes: Object.entries(this.config.routes).map(([path, config]) => 
+              `${config.method.toUpperCase()} ${path}`
+            )
           });
-          console.log('');
         }
         
         resolve();
@@ -133,9 +202,20 @@ export class ServerGenerator {
 
       this.server.on('error', (error: NodeJS.ErrnoException) => {
         if (error.code === 'EADDRINUSE') {
-          reject(new PortError(`Port ${port} is already in use`, port));
+          const portError = new PortError(`Port ${port} is already in use`, port);
+          log.error('Failed to start server', {
+            module: 'server',
+            error: portError,
+            port
+          });
+          reject(portError);
         } else {
-          reject(error);
+          log.error('Server error', {
+            module: 'server',
+            error,
+            port
+          });
+          reject(new ServerError(error.message, { originalError: error }));
         }
       });
     });
@@ -152,9 +232,14 @@ export class ServerGenerator {
     return new Promise((resolve, reject) => {
       this.server!.close((err) => {
         if (err) {
-          reject(err);
+          log.error('Error stopping server', {
+            module: 'server',
+            error: err
+          });
+          reject(new ServerError('Failed to stop server', { originalError: err }));
         } else {
           this.server = null;
+          log.info('Server stopped', { module: 'server' });
           resolve();
         }
       });
@@ -165,10 +250,15 @@ export class ServerGenerator {
    * Restart the server with new configuration
    */
   public async restart(newConfig?: MockServerConfig): Promise<void> {
+    log.info('Restarting server', { module: 'server' });
+    
     await this.stop();
     
     if (newConfig) {
       this.config = newConfig;
+      if (newConfig.server.logLevel) {
+        setLogLevel(newConfig.server.logLevel);
+      }
       this.app = express();
       this.setupMiddleware();
       this.setupRoutes();
@@ -208,11 +298,18 @@ export class ServerGenerator {
         'get:/api/data': {
           path: '/api/data',
           method: 'get',
-          response: (req: Request) => ({
-            message: 'This is a mock response',
-            timestamp: new Date().toISOString(),
-            data: SchemaParser.parse(schema)
-          })
+          response: (req: Request) => {
+            const data = SchemaParser.parse(schema);
+            log.debug('Generated mock data', {
+              module: 'schema-parser',
+              schema: schema.title || 'untitled'
+            });
+            return {
+              message: 'This is a mock response',
+              timestamp: new Date().toISOString(),
+              data
+            };
+          }
         },
         'post:/api/data': {
           path: '/api/data',

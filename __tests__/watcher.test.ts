@@ -25,34 +25,34 @@ describe('SchemaWatcher', () => {
   });
 
   describe('watch()', () => {
-    it('should watch a file for changes', () => {
+    it('should watch a file for changes', async () => {
       const testFile = '/test/schema.json';
-      watcher.watch(testFile);
+      await watcher.watch(testFile);
       
       expect(watcher.isWatching(testFile)).toBe(true);
       expect(watcher.getWatchedFiles()).toContain(testFile);
     });
 
-    it('should not watch same file twice', () => {
+    it('should not watch same file twice', async () => {
       const testFile = '/test/schema.json';
-      watcher.watch(testFile);
-      watcher.watch(testFile); // Second call
+      await watcher.watch(testFile);
+      await watcher.watch(testFile); // Second call
       
       expect(watcher.getWatchedFiles().length).toBe(1);
     });
 
-    it('should handle multiple files', () => {
-      watcher.watch('/test/schema1.json');
-      watcher.watch('/test/schema2.json');
+    it('should handle multiple files', async () => {
+      await watcher.watch('/test/schema1.json');
+      await watcher.watch('/test/schema2.json');
       
       expect(watcher.getWatchedFiles().length).toBe(2);
     });
   });
 
   describe('unwatch()', () => {
-    it('should stop watching a file', () => {
+    it('should stop watching a file', async () => {
       const testFile = '/test/schema.json';
-      watcher.watch(testFile);
+      await watcher.watch(testFile);
       expect(watcher.isWatching(testFile)).toBe(true);
       
       watcher.unwatch(testFile);
@@ -68,7 +68,7 @@ describe('SchemaWatcher', () => {
 
   describe('close()', () => {
     it('should close watcher and clear all watched files', async () => {
-      watcher.watch('/test/schema.json');
+      await watcher.watch('/test/schema.json');
       expect(watcher.getWatchedFiles().length).toBe(1);
       
       await watcher.close();
@@ -77,10 +77,10 @@ describe('SchemaWatcher', () => {
   });
 
   describe('getWatchedFiles()', () => {
-    it('should return list of watched files', () => {
+    it('should return list of watched files', async () => {
       expect(watcher.getWatchedFiles()).toEqual([]);
       
-      watcher.watch('/test/schema.json');
+      await watcher.watch('/test/schema.json');
       expect(watcher.getWatchedFiles()).toEqual(['/test/schema.json']);
     });
 
@@ -90,9 +90,9 @@ describe('SchemaWatcher', () => {
   });
 
   describe('isWatching()', () => {
-    it('should return true for watched files', () => {
+    it('should return true for watched files', async () => {
       const testFile = '/test/schema.json';
-      watcher.watch(testFile);
+      await watcher.watch(testFile);
       expect(watcher.isWatching(testFile)).toBe(true);
     });
 
@@ -100,9 +100,9 @@ describe('SchemaWatcher', () => {
       expect(watcher.isWatching('/some/file.json')).toBe(false);
     });
 
-    it('should return false after unwatching', () => {
+    it('should return false after unwatching', async () => {
       const testFile = '/test/schema.json';
-      watcher.watch(testFile);
+      await watcher.watch(testFile);
       watcher.unwatch(testFile);
       expect(watcher.isWatching(testFile)).toBe(false);
     });

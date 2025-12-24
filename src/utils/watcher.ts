@@ -1,6 +1,6 @@
 import { EventEmitter } from 'events';
 import { FileError } from '../errors';
-import chalk from 'chalk';
+import { log } from './logger';
 
 // Dynamically import chokidar to avoid ESM issues in pkg
 let chokidarModule: any = null;
@@ -10,7 +10,10 @@ async function getChokidar() {
     try {
       chokidarModule = await import('chokidar');
     } catch (error) {
-      console.warn('Chokidar not available, file watching disabled');
+      log.warn('Chokidar not available, file watching disabled', {
+        module: 'watcher',
+        error
+      });
       return null;
     }
   }
@@ -30,13 +33,18 @@ export class SchemaWatcher extends EventEmitter {
    */
   async watch(filePath: string): Promise<void> {
     if (this.watchedFiles.has(filePath)) {
-      console.warn(chalk.yellow(`Already watching: ${filePath}`));
+      log.debug(`Already watching file`, {
+        module: 'watcher',
+        filePath
+      });
       return;
     }
 
     const chokidar = await getChokidar();
     if (!chokidar) {
-      console.warn(chalk.yellow('File watching is not available in this environment'));
+      log.warn('File watching is not available in this environment', {
+        module: 'watcher'
+      });
       return;
     }
 
@@ -52,12 +60,19 @@ export class SchemaWatcher extends EventEmitter {
 
       this.watcher
         .on('change', (path: string) => {
-          console.log(chalk.blue(`📝 Schema file changed: ${path}`));
+          log.info(`Schema file changed`, {
+            module: 'watcher',
+            filePath: path
+          });
           this.emit('change', path);
         })
         .on('error', (error: unknown) => {
           const errorMessage = error instanceof Error ? error.message : String(error);
-          console.error(chalk.red(`❌ Watcher error: ${errorMessage}`));
+          log.error(`Watcher error: ${errorMessage}`, {
+            module: 'watcher',
+            error: error instanceof Error ? error : new Error(errorMessage),
+            filePath
+          });
           this.emit('error', new FileError(
             `File watcher error: ${errorMessage}`,
             filePath,
@@ -68,7 +83,10 @@ export class SchemaWatcher extends EventEmitter {
 
     this.watcher.add(filePath);
     this.watchedFiles.add(filePath);
-    console.log(chalk.green(`👁️  Watching for changes: ${filePath}`));
+    log.info(`Started watching file`, {
+      module: 'watcher',
+      filePath
+    });
   }
 
   /**
@@ -83,7 +101,10 @@ export class SchemaWatcher extends EventEmitter {
     if (this.watcher) {
       this.watcher.unwatch(filePath);
       this.watchedFiles.delete(filePath);
-      console.log(chalk.gray(`Stopped watching: ${filePath}`));
+      log.debug(`Stopped watching file`, {
+        module: 'watcher',
+        filePath
+      });
     }
   }
 
@@ -95,7 +116,9 @@ export class SchemaWatcher extends EventEmitter {
       await this.watcher.close();
       this.watcher = null;
       this.watchedFiles.clear();
-      console.log(chalk.gray('File watcher closed'));
+      log.debug('File watcher closed', {
+        module: 'watcher'
+      });
     }
   }
 

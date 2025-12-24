@@ -68,7 +68,9 @@
   "pkg": {
     "scripts": "dist/**/*.js",
     "assets": [
-      "package.json"
+      "package.json",
+      "node_modules/chokidar/**/*",
+      "node_modules/inquirer/**/*"
     ],
     "targets": [
       "node18-win-x64"

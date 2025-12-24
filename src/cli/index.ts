@@ -16,6 +16,7 @@ import {
 } from '../utils/validation';
 import { SchemaWatcher } from '../utils/watcher';
 import { startInstallerServer } from '../installer/server';
+import { log, setLogLevel } from '../utils/logger';
 
 const program = new Command();
 
@@ -34,6 +35,10 @@ program
   .option('-w, --watch', 'Watch schema file for changes and auto-reload')
   .action(async (schemaPath, options) => {
     try {
+      // Set log level first
+      const logLevel = validateLogLevel(options.logLevel);
+      setLogLevel(logLevel);
+      
       let schema: Schema = {
         type: 'object',
         properties: {
@@ -52,6 +57,10 @@ program
           schema = JSON.parse(fileContent);
           validateSchema(schema);
           
+          log.info('Schema loaded successfully', {
+            module: 'cli',
+            schemaPath: absolutePath
+          });
         } catch (error: unknown) {
           if (error instanceof SyntaxError) {
             throw new FileError(
@@ -63,24 +72,20 @@ program
           throw error;
         }
       } else {
-        console.log(chalk.yellow('ℹ️  No schema provided, using default schema'));
+        log.info('Using default schema', { module: 'cli' });
       }
 
       // Validate options
       const port = validatePort(options.port);
-      const logLevel = validateLogLevel(options.logLevel);
       const watchMode = options.watch || false;
 
-      console.log(chalk.blue(`🚀 Starting mock server on port ${port}...`));
-      console.log(chalk.blue(`🔌 CORS: ${options.cors ? 'enabled' : 'disabled'}`));
-      console.log(chalk.blue(`📝 Log level: ${logLevel}`));
-      
-      if (schemaPath) {
-        console.log(chalk.blue(`📄 Using schema: ${resolve(process.cwd(), schemaPath)}`));
-        if (watchMode) {
-          console.log(chalk.blue(`👁️  Watch mode: enabled`));
-        }
-      }
+      log.info('Starting mock server', {
+        module: 'cli',
+        port,
+        cors: options.cors,
+        logLevel,
+        watchMode
+      });
 
       const server = createMockServer(schema, {
         port,
@@ -100,7 +105,10 @@ program
         
         watcher.on('change', async (changedPath: string) => {
           try {
-            console.log(chalk.yellow(`\n🔄 Reloading schema...`));
+            log.info('Reloading schema', {
+              module: 'cli',
+              schemaPath: changedPath
+            });
             
             // Read and validate new schema
             const newContent = readFileSync(changedPath, 'utf-8');
@@ -118,9 +126,12 @@ program
             await server.restart(newServerConfig);
             
             console.log(chalk.green(`✅ Server reloaded successfully`));
-            console.log(chalk.blue(`📄 Using updated schema from: ${changedPath}`));
           } catch (error: unknown) {
             const message = error instanceof Error ? formatError(error) : 'Unknown error occurred';
+            log.error('Error reloading schema', {
+              module: 'cli',
+              error: error instanceof Error ? error : new Error(String(error))
+            });
             console.error(chalk.red(`❌ Error reloading schema:`));
             console.error(chalk.red(message));
             console.log(chalk.yellow(`⚠️  Server continues running with previous schema`));
@@ -128,7 +139,10 @@ program
         });
 
         watcher.on('error', (error: Error) => {
-          console.error(chalk.red(`❌ Watcher error: ${error.message}`));
+          log.error('Watcher error', {
+            module: 'cli',
+            error
+          });
         });
 
         await watcher.watch(absolutePath);
@@ -145,6 +159,10 @@ program
 
     } catch (error: unknown) {
       const message = error instanceof Error ? formatError(error) : 'Unknown error occurred';
+      log.error('Error starting mock server', {
+        module: 'cli',
+        error: error instanceof Error ? error : new Error(String(error))
+      });
       console.error(chalk.red('❌ Error starting mock server:'));
       console.error(chalk.red(message));
       process.exit(1);
