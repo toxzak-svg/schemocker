@@ -15,7 +15,7 @@ schemock start
 ```
 
 **Option 2: Windows Installer (Recommended)**
-1. Download `Schemock-Setup.exe` from [releases](https://github.com/yourusername/schemock/releases)
+1. Download `Schemock-Setup.exe` from [releases](https://github.com/toxzak-svg/schemock-app/releases)
 2. Run installer
 3. Launch from Start Menu
 
@@ -333,8 +333,8 @@ We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) f
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/schemock.git
-cd schemock
+git clone https://github.com/toxzak-svg/schemock-app.git
+cd schemock-app
 
 # Install dependencies
 npm install
@@ -361,17 +361,17 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 🔗 Links
 
-- **Documentation**: [https://schemock.dev/docs](https://schemock.dev/docs)
-- **API Reference**: [https://schemock.dev/api](https://schemock.dev/api)
-- **GitHub Repository**: [https://github.com/yourusername/schemock](https://github.com/yourusername/schemock)
-- **Issue Tracker**: [https://github.com/yourusername/schemock/issues](https://github.com/yourusername/schemock/issues)
-- **Releases**: [https://github.com/yourusername/schemock/releases](https://github.com/yourusername/schemock/releases)
+- **Documentation**: [docs/](./docs/)
+- **API Reference**: [docs/api-documentation.md](./docs/api-documentation.md)
+- **GitHub Repository**: [https://github.com/toxzak-svg/schemock-app](https://github.com/toxzak-svg/schemock-app)
+- **Issue Tracker**: [https://github.com/toxzak-svg/schemock-app/issues](https://github.com/toxzak-svg/schemock-app/issues)
+- **Releases**: [https://github.com/toxzak-svg/schemock-app/releases](https://github.com/toxzak-svg/schemock-app/releases)
 
 ## 🙋 Support
 
 - **Documentation**: Check the [docs](./docs/) folder
-- **Issues**: [GitHub Issues](https://github.com/yourusername/schemock/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/yourusername/schemock/discussions)
+- **Issues**: [GitHub Issues](https://github.com/toxzak-svg/schemock-app/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/toxzak-svg/schemock-app/discussions)
 
 ## 🌟 Acknowledgments
 
@@ -386,9 +386,9 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 **Made with ❤️ by the Schemock Team**
 
-[![GitHub stars](https://img.shields.io/github/stars/yourusername/schemock?style=social)](https://github.com/yourusername/schemock/stargazers)
-[![GitHub forks](https://img.shields.io/github/forks/yourusername/schemock?style=social)](https://github.com/yourusername/schemock/network/members)
-[![GitHub issues](https://img.shields.io/github/issues/yourusername/schemock)](https://github.com/yourusername/schemock/issues)
-[![GitHub license](https://img.shields.io/github/license/yourusername/schemock)](https://github.com/yourusername/schemock/blob/main/LICENSE)
+[![GitHub stars](https://img.shields.io/github/stars/toxzak-svg/schemock-app?style=social)](https://github.com/toxzak-svg/schemock-app/stargazers)
+[![GitHub forks](https://img.shields.io/github/forks/toxzak-svg/schemock-app?style=social)](https://github.com/toxzak-svg/schemock-app/network/members)
+[![GitHub issues](https://img.shields.io/github/issues/toxzak-svg/schemock-app)](https://github.com/toxzak-svg/schemock-app/issues)
+[![GitHub license](https://img.shields.io/github/license/toxzak-svg/schemock-app)](https://github.com/toxzak-svg/schemock-app/blob/main/LICENSE)
 
 </div>

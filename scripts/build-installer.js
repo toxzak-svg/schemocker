@@ -11,7 +11,7 @@ const config = {
   version: require('../package.json').version,
   productName: 'Schemock',
   publisher: 'Schemock Team',
-  website: 'https://github.com/yourusername/schemock',
+  website: 'https://github.com/toxzak-svg/schemock-app',
   installerScript: 'scripts/installer.nsi',
   releasesDir: 'releases',
   distDir: 'dist'
@@ -251,7 +251,7 @@ After installation:
 ## 🐛 Bug Reports
 
 Found an issue? Please report it at:
-https://github.com/yourusername/schemock/issues
+https://github.com/toxzak-svg/schemock-app/issues
 
 ## 📄 License
 

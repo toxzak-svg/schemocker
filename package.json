@@ -87,10 +87,10 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/yourusername/schemock.git"
+    "url": "https://github.com/toxzak-svg/schemock-app.git"
   },
   "bugs": {
-    "url": "https://github.com/yourusername/schemock/issues"
+    "url": "https://github.com/toxzak-svg/schemock-app/issues"
   },
-  "homepage": "https://github.com/yourusername/schemock#readme"
+  "homepage": "https://github.com/toxzak-svg/schemock-app#readme"
 }

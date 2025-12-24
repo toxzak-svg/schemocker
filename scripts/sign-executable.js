@@ -11,7 +11,7 @@ const config = {
   timestampServer: 'http://timestamp.digicert.com',
   algorithm: 'SHA256',
   description: 'Schemock Mock Server',
-  url: 'https://github.com/yourusername/schemock'
+  url: 'https://github.com/toxzak-svg/schemock-app'
 };
 
 function checkPrerequisites() {
@@ -191,7 +191,7 @@ To bypass the security warning (at your own risk):
 ## For Production Use
 
 For production environments, please obtain a signed version from:
-https://github.com/yourusername/schemock/releases
+https://github.com/toxzak-svg/schemock-app/releases
 
 ---
 

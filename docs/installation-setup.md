@@ -57,8 +57,8 @@ npm install schemock --save
 Clone and install from source for development:
 
 ```bash
-git clone https://github.com/yourusername/schemock.git
-cd schemock
+git clone https://github.com/toxzak-svg/schemock-app.git
+cd schemock-app
 npm install
 npm run build
 npm link

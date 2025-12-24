@@ -596,7 +596,7 @@ curl -X POST -H "Content-Type: application/json" \
 
 ### Community Resources
 
-1. **GitHub Issues**: [https://github.com/yourusername/schemock/issues](https://github.com/yourusername/schemock/issues)
+1. **GitHub Issues**: [https://github.com/toxzak-svg/schemock-app/issues](https://github.com/toxzak-svg/schemock-app/issues)
 2. **Documentation**: Check the full documentation set
 3. **Examples**: Browse the examples directory
 

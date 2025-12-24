@@ -12,7 +12,7 @@ const config = {
   productName: 'Schemock',
   description: 'Mock Server Generator',
   author: 'Schemock Team',
-  website: 'https://github.com/yourusername/schemock'
+  website: 'https://github.com/toxzak-svg/schemock-app'
 };
 
 async function main() {

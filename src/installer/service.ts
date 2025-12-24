@@ -24,7 +24,7 @@ export const APP_CONFIG = {
   name: 'Schemock',
   version: '1.0.0',
   publisher: 'Schemock Team',
-  website: 'https://github.com/yourusername/schemock',
+  website: 'https://github.com/toxzak-svg/schemock-app',
   minSystemRequirements: {
     os: 'Windows 10 or later',
     ram: '512MB',

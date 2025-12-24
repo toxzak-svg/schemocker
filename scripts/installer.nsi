@@ -4,7 +4,7 @@
 !define PRODUCT_NAME "Schemock"
 !define PRODUCT_VERSION "1.0.0"
 !define PRODUCT_PUBLISHER "Schemock Team"
-!define PRODUCT_WEB_SITE "https://github.com/yourusername/schemock"
+!define PRODUCT_WEB_SITE "https://github.com/toxzak-svg/schemock-app"
 !define PRODUCT_UNINST_KEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\${PRODUCT_NAME}"
 !define PRODUCT_UNINST_ROOT_KEY "HKLM"
 !define PRODUCT_DIR_REGKEY "Software\${PRODUCT_PUBLISHER}\${PRODUCT_NAME}"

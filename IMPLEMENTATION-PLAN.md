@@ -546,7 +546,7 @@ npm run build:all
 
 3. **Homebrew** (Future)
    ```bash
-   brew tap yourusername/schemock
+   brew tap toxzak-svg/schemock-app
    brew install schemock
    ```
 
