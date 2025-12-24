@@ -12,6 +12,7 @@ const __1 = require("..");
 const errors_1 = require("../errors");
 const validation_1 = require("../utils/validation");
 const watcher_1 = require("../utils/watcher");
+const server_1 = require("../installer/server");
 const program = new commander_1.Command();
 program
     .name('schemock')
@@ -245,6 +246,24 @@ app.listen(port, () => {
     catch (error) {
         const message = error instanceof Error ? (0, errors_1.formatError)(error) : 'Unknown error occurred';
         console.error(chalk_1.default.red('❌ Error initializing project:'));
+        console.error(chalk_1.default.red(message));
+        process.exit(1);
+    }
+});
+// Install command
+program
+    .command('install')
+    .description('Launch the interactive installer')
+    .option('-p, --port <number>', 'Port to run the installer UI on', '3000')
+    .action((options) => {
+    try {
+        const port = (0, validation_1.validatePort)(options.port);
+        console.log(chalk_1.default.blue(`🚀 Launching installer UI...`));
+        (0, server_1.startInstallerServer)(port);
+    }
+    catch (error) {
+        const message = error instanceof Error ? (0, errors_1.formatError)(error) : 'Unknown error occurred';
+        console.error(chalk_1.default.red('❌ Error launching installer:'));
         console.error(chalk_1.default.red(message));
         process.exit(1);
     }

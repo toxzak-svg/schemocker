@@ -68,7 +68,8 @@
   "pkg": {
     "scripts": "dist/**/*.js",
     "assets": [
-      "package.json"
+      "package.json",
+      "dist/installer/ui/**/*"
     ],
     "targets": [
       "node18-win-x64"

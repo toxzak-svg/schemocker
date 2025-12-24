@@ -250,6 +250,7 @@ echo Starting Schemock Mock Server...
 echo.
 echo Usage:
 echo   schemock.exe start [schema-file.json]
+echo   schemock.exe install
 echo   schemock.exe --help
 echo.
 echo Starting with example schema...
@@ -267,8 +268,18 @@ schemock.exe --help
 pause
 `;
 
+  // Install batch file
+  const installBatchContent = `@echo off
+title Schemock Installer
+echo Starting Schemock Installer...
+echo.
+schemock.exe install
+pause
+`;
+
   fs.writeFileSync(path.join(releaseDir, 'start.bat'), startBatchContent);
   fs.writeFileSync(path.join(releaseDir, 'help.bat'), helpBatchContent);
+  fs.writeFileSync(path.join(releaseDir, 'install.bat'), installBatchContent);
 
   console.log('✅ Batch files created');
 }

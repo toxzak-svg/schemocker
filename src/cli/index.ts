@@ -15,6 +15,7 @@ import {
   validateProjectName
 } from '../utils/validation';
 import { SchemaWatcher } from '../utils/watcher';
+import { startInstallerServer } from '../installer/server';
 
 const program = new Command();
 
@@ -291,6 +292,24 @@ app.listen(port, () => {
     } catch (error: unknown) {
       const message = error instanceof Error ? formatError(error) : 'Unknown error occurred';
       console.error(chalk.red('❌ Error initializing project:'));
+      console.error(chalk.red(message));
+      process.exit(1);
+    }
+  });
+
+// Install command
+program
+  .command('install')
+  .description('Launch the interactive installer')
+  .option('-p, --port <number>', 'Port to run the installer UI on', '3000')
+  .action((options) => {
+    try {
+      const port = validatePort(options.port);
+      console.log(chalk.blue(`🚀 Launching installer UI...`));
+      startInstallerServer(port);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? formatError(error) : 'Unknown error occurred';
+      console.error(chalk.red('❌ Error launching installer:'));
       console.error(chalk.red(message));
       process.exit(1);
     }
