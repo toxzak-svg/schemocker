@@ -63,11 +63,23 @@ When using Schemock:
 
 ## Known Security Considerations
 
-### 1. pkg Vulnerability (Moderate - GHSA-22r3-9w55-cj54)
-**Status:** Acknowledged  
-**Impact:** Low - Development dependency only  
-**Details:** The `pkg` package has a local privilege escalation vulnerability. This only affects the build process for standalone executables and does not impact the library when used as a dependency.  
-**Mitigation:** This vulnerability does not affect runtime usage of Schemock. Users importing Schemock as a library are not affected. For building executables, ensure you're in a trusted build environment.
+### 1. pkg Vulnerability (Moderate - CVE-2024-24828)
+**Status:** Acknowledged - Acceptable Risk  
+**Severity:** Moderate (6.6/10 CVSS)  
+**Impact:** Build-time only - Does not affect end users  
+**Details:** The `pkg` package (v5.8.1) has a local privilege escalation vulnerability (GHSA-22r3-9w55-cj54). This vulnerability:
+- Only affects the build environment, not distributed executables
+- Requires local system access with write permissions to `/tmp/pkg/`
+- Is primarily a Unix/Linux concern (project builds for Windows)
+- Has no available patch (package deprecated by Vercel)
+
+**Mitigation:**
+- ✅ Builds should be performed in secure, isolated CI/CD environments
+- ✅ Limit access to build systems to authorized personnel only
+- ✅ The distributed executables are completely unaffected
+- ✅ Consider migration to Node.js native SEA in future major version
+
+**For Users:** This vulnerability does NOT affect the schemock executable or library usage. Your applications are safe.
 
 ### 2. JSON Schema Complexity
 **Risk:** Denial of Service  
@@ -151,4 +163,8 @@ For security concerns, contact:
 
 ---
 
-Last Updated: 2025-12-23
+Last Updated: 2024-12-24
+
+**Recent Security Actions:**
+- 2024-12-24: Removed `markdown-pdf` package (eliminated 6 vulnerabilities including 2 critical)
+- 2024-12-24: Comprehensive security audit completed - See [SECURITY-AUDIT-2024-12.md](SECURITY-AUDIT-2024-12.md)
