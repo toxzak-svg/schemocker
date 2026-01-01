@@ -1,6 +1,6 @@
 {
   "name": "schemock",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Turn JSON schemas into live mock REST APIs in seconds for frontend/dev/test teams",
   "main": "dist/index.js",
   "bin": {
