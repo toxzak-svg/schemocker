@@ -6,6 +6,7 @@ export declare class ServerGenerator {
     private parser;
     private server;
     private state;
+    private version;
     constructor(config: MockServerConfig);
     private setupMiddleware;
     private setupRoutes;
@@ -28,6 +29,10 @@ export declare class ServerGenerator {
      * Get current server configuration
      */
     getConfig(): MockServerConfig;
+    /**
+     * Add branding metadata to response (unless disabled for paid users)
+     */
+    private addBranding;
     static generateFromSchema(schema: any, options?: Omit<ServerOptions, 'port'> & {
         port?: number;
     }): ServerGenerator;

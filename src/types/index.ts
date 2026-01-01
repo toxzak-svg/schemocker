@@ -52,6 +52,7 @@ export interface ServerOptions {
   logLevel?: 'error' | 'warn' | 'info' | 'debug';
   scenario?: Scenario;
   strict?: boolean;
+  hideBranding?: boolean; // Disable Schemock branding (for paid users)
 }
 
 export interface RouteConfig {

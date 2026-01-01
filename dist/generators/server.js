@@ -17,6 +17,7 @@ class ServerGenerator {
     constructor(config) {
         this.server = null;
         this.state = {};
+        this.version = require('../../package.json').version;
         this.config = config;
         this.app = (0, express_1.default)();
         this.parser = new schema_1.SchemaParser();
@@ -35,6 +36,14 @@ class ServerGenerator {
         }
         // JSON body parsing with size limit for security
         this.app.use(express_1.default.json({ limit: '10mb' }));
+        // Add branding headers (unless disabled for paid users)
+        if (!this.config.server.hideBranding) {
+            this.app.use((req, res, next) => {
+                res.setHeader('X-Powered-By', `Schemock v${this.version}`);
+                next();
+            });
+            logger_1.log.debug('Branding enabled', { module: 'server' });
+        }
         // Request logging middleware
         this.app.use((req, res, next) => {
             const startTime = Date.now();
@@ -85,6 +94,90 @@ class ServerGenerator {
                 status: 'healthy',
                 timestamp: new Date().toISOString(),
                 uptime: process.uptime()
+            });
+        });
+        // Share schema endpoint
+        this.app.get('/api/share', (req, res) => {
+            const shareData = {
+                routes: this.config.routes,
+                server: {
+                    port: this.config.server.port,
+                    cors: this.config.server.cors
+                },
+                version: this.version,
+                createdAt: new Date().toISOString()
+            };
+            res.json(shareData);
+        });
+        // Schema gallery endpoint (static list of public schemas)
+        this.app.get('/api/gallery', (req, res) => {
+            const publicSchemas = [
+                {
+                    id: 'ecommerce-product',
+                    title: 'E-commerce Product API',
+                    description: 'Complete product management API with categories, pricing, and inventory',
+                    url: 'https://github.com/toxzak-svg/schemock-app',
+                    schema: {
+                        type: 'object',
+                        title: 'Product',
+                        properties: {
+                            id: { type: 'string', format: 'uuid' },
+                            name: { type: 'string' },
+                            price: { type: 'number', minimum: 0 },
+                            category: { type: 'string', enum: ['electronics', 'clothing', 'books'] },
+                            inStock: { type: 'boolean' }
+                        },
+                        required: ['id', 'name', 'price', 'category']
+                    }
+                },
+                {
+                    id: 'social-media-post',
+                    title: 'Social Media Post Schema',
+                    description: 'Blog post and social media content API with likes and comments',
+                    url: 'https://github.com/toxzak-svg/schemock-app',
+                    schema: {
+                        type: 'object',
+                        title: 'Post',
+                        properties: {
+                            id: { type: 'string', format: 'uuid' },
+                            title: { type: 'string' },
+                            content: { type: 'string' },
+                            author: { type: 'string' },
+                            likes: { type: 'number' },
+                            comments: { type: 'array', items: { type: 'string' } }
+                        },
+                        required: ['id', 'title', 'content', 'author']
+                    }
+                },
+                {
+                    id: 'user-profile',
+                    title: 'User Profile API',
+                    description: 'User authentication and profile management',
+                    url: 'https://github.com/toxzak-svg/schemock-app',
+                    schema: {
+                        type: 'object',
+                        title: 'User',
+                        properties: {
+                            id: { type: 'string', format: 'uuid' },
+                            email: { type: 'string', format: 'email' },
+                            username: { type: 'string' },
+                            profile: {
+                                type: 'object',
+                                properties: {
+                                    firstName: { type: 'string' },
+                                    lastName: { type: 'string' },
+                                    avatar: { type: 'string', format: 'uri' }
+                                }
+                            }
+                        },
+                        required: ['id', 'email', 'username']
+                    }
+                }
+            ];
+            res.json({
+                schemas: publicSchemas,
+                total: publicSchemas.length,
+                message: 'Made with Schemock'
             });
         });
         // Favicon handler (prevent 404 warnings)
@@ -170,13 +263,16 @@ class ServerGenerator {
                 }
                 // Handle different response types
                 if (typeof response === 'function') {
-                    // If response is a function, call it with the request and state
+                    // If response is a function, call it with request and state
                     const result = await Promise.resolve(response(req, this.state));
-                    res.status(statusCode).json(result);
+                    // Add branding metadata to response (unless disabled)
+                    const brandedResult = this.addBranding(result);
+                    res.status(statusCode).json(brandedResult);
                 }
                 else if (typeof response === 'object' && response !== null) {
-                    // If response is an object, use it directly
-                    res.status(statusCode).json(response);
+                    // If response is an object, add branding metadata
+                    const brandedResponse = this.addBranding(response);
+                    res.status(statusCode).json(brandedResponse);
                 }
                 else {
                     // For other types, send as is
@@ -315,6 +411,32 @@ class ServerGenerator {
      */
     getConfig() {
         return this.config;
+    }
+    /**
+     * Add branding metadata to response (unless disabled for paid users)
+     */
+    addBranding(data) {
+        // Skip branding if explicitly disabled
+        if (this.config.server.hideBranding) {
+            return data;
+        }
+        // Don't add metadata to non-objects or arrays
+        if (typeof data !== 'object' || data === null || Array.isArray(data)) {
+            return data;
+        }
+        // Check if _meta already exists in response
+        if ('_meta' in data) {
+            return data;
+        }
+        // Add branding metadata
+        return {
+            ...data,
+            _meta: {
+                generated_by: 'Schemock',
+                version: this.version,
+                url: 'https://github.com/toxzak-svg/schemock-app'
+            }
+        };
     }
     static generateFromSchema(schema, options = { port: 3000 }) {
         const port = options.port !== undefined ? options.port : 3000;

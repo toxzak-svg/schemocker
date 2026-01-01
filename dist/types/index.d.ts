@@ -48,6 +48,7 @@ export interface ServerOptions {
     logLevel?: 'error' | 'warn' | 'info' | 'debug';
     scenario?: Scenario;
     strict?: boolean;
+    hideBranding?: boolean;
 }
 export interface RouteConfig {
     path: string;
