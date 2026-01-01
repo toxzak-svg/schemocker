@@ -1,0 +1,182 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Activity Feed API",
+  "description": "Social activity feed with posts, comments, likes, and user interactions",
+  "type": "object",
+  "properties": {
+    "activities": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "type": {
+            "type": "string",
+            "enum": ["post", "comment", "like", "share", "follow", "mention"]
+          },
+          "user": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string", "format": "uuid" },
+              "username": { "type": "string" },
+              "fullName": { "type": "string" },
+              "avatar": { "type": "string", "format": "uri" }
+            }
+          },
+          "content": {
+            "type": "string",
+            "maxLength": 1000
+          },
+          "media": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "enum": ["image", "video", "link"]
+                },
+                "url": { "type": "string", "format": "uri" },
+                "thumbnail": { "type": "string", "format": "uri" },
+                "width": { "type": "number", "minimum": 0 },
+                "height": { "type": "number", "minimum": 0 }
+              }
+            }
+          },
+          "target": {
+            "type": "object",
+            "properties": {
+              "type": { "type": "string" },
+              "id": { "type": "string", "format": "uuid" },
+              "user": {
+                "type": "object",
+                "properties": {
+                  "id": { "type": "string", "format": "uuid" },
+                  "username": { "type": "string" }
+                }
+              }
+            }
+          },
+          "mentions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "userId": { "type": "string", "format": "uuid" },
+                "username": { "type": "string" },
+                "position": { "type": "number" }
+              }
+            }
+          },
+          "hashtags": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "location": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" },
+              "latitude": { "type": "number" },
+              "longitude": { "type": "number" }
+            }
+          },
+          "stats": {
+            "type": "object",
+            "properties": {
+              "likes": { "type": "number", "minimum": 0 },
+              "comments": { "type": "number", "minimum": 0 },
+              "shares": { "type": "number", "minimum": 0 },
+              "views": { "type": "number", "minimum": 0 }
+            }
+          },
+          "likedByCurrentUser": {
+            "type": "boolean"
+          },
+          "comments": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": { "type": "string", "format": "uuid" },
+                "user": {
+                  "type": "object",
+                  "properties": {
+                    "id": { "type": "string", "format": "uuid" },
+                    "username": { "type": "string" },
+                    "avatar": { "type": "string", "format": "uri" }
+                  }
+                },
+                "content": { "type": "string", "maxLength": 500 },
+                "createdAt": { "type": "string", "format": "date-time" },
+                "likes": { "type": "number", "minimum": 0 }
+              }
+            }
+          },
+          "privacy": {
+            "type": "string",
+            "enum": ["public", "followers", "private"]
+          },
+          "sensitive": {
+            "type": "boolean"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": ["id", "type", "user", "content", "createdAt"]
+      }
+    },
+    "pagination": {
+      "type": "object",
+      "properties": {
+        "page": { "type": "number", "minimum": 1 },
+        "limit": { "type": "number", "minimum": 1, "maximum": 100 },
+        "total": { "type": "number", "minimum": 0 },
+        "totalPages": { "type": "number", "minimum": 1 },
+        "hasNext": { "type": "boolean" },
+        "hasPrevious": { "type": "boolean" }
+      }
+    },
+    "trendingTopics": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "hashtag": { "type": "string" },
+          "postCount": { "type": "number", "minimum": 0 },
+          "rank": { "type": "number", "minimum": 1 }
+        }
+      },
+      "maxItems": 10
+    },
+    "suggestedUsers": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "username": { "type": "string" },
+          "fullName": { "type": "string" },
+          "avatar": { "type": "string", "format": "uri" },
+          "bio": { "type": "string", "maxLength": 200 },
+          "followersCount": { "type": "number", "minimum": 0 },
+          "isFollowing": { "type": "boolean" },
+          "mutualFollowers": {
+            "type": "number",
+            "minimum": 0
+          }
+        }
+      },
+      "maxItems": 5
+    }
+  },
+  "required": ["activities", "pagination"]
+}

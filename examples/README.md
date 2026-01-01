@@ -139,6 +139,158 @@ Complete blog post schema with:
 
 ---
 
+### 6. Auth User + Profile (`auth-user-profile.json`)
+**Perfect for:** Authentication flows, user settings, profile management
+
+Complete user authentication and profile schema with:
+- User identity (ID, username, email)
+- Profile details (fullName, bio, avatar)
+- Location information
+- User preferences (theme, language, notifications)
+- Social media links
+- User statistics (followers, following, posts)
+- Verification status
+- Activity timestamps
+
+```powershell
+.\schemock.exe start examples\auth-user-profile.json --port 3005
+# Open: http://localhost:3005/api/data
+```
+
+**Use Case:** Building authentication screens, user profile pages, settings forms, or any app with user accounts.
+
+**Features Demonstrated:**
+- Nested objects (location, preferences, social, stats)
+- Complex preference structure
+- Social media integration fields
+- User activity tracking
+- Enum-based theme selection
+
+---
+
+### 7. Product List (`product-list.json`)
+**Perfect for:** E-commerce frontends, product catalogs, filtering interfaces
+
+Comprehensive product catalog with:
+- Array of products with rich details
+- Product pricing (price, compareAtPrice, discount)
+- Product images and variants
+- Category and brand information
+- Stock status and ratings
+- Tags and metadata
+- Pagination controls
+- Filter options (categories, price range, brands, rating)
+
+```powershell
+.\schemock.exe start examples\product-list.json --port 3006
+# Open: http://localhost:3006/api/data
+```
+
+**Use Case:** Building e-commerce product listings, category pages, search results, or product comparison views.
+
+**Features Demonstrated:**
+- Large array with complex items
+- Pagination metadata
+- Filter configuration
+- Product variants
+- Discount calculations
+- Rating and review counts
+
+---
+
+### 8. Shopping Cart (`cart.json`)
+**Perfect for:** Checkout flows, e-commerce apps, shopping cart management
+
+Complete shopping cart schema with:
+- Cart items with product details
+- Quantity and pricing calculations
+- Product variants and availability
+- Cart summary (subtotal, discount, tax, shipping, total)
+- Coupon codes
+- Shipping and billing addresses
+- Payment method information
+- Currency support
+
+```powershell
+.\schemock.exe start examples\cart.json --port 3007
+# Open: http://localhost:3007/api/data
+```
+
+**Use Case:** Building shopping cart pages, checkout forms, order summaries, or payment flows.
+
+**Features Demonstrated:**
+- Complex nested structures (items, addresses, payment)
+- Array of cart items with calculations
+- Multiple address types
+- Payment method details
+- Coupon system
+- Currency formatting
+
+---
+
+### 9. Dashboard Cards (`dashboard-cards.json`)
+**Perfect for:** Admin dashboards, analytics panels, business intelligence
+
+Complete dashboard analytics schema with:
+- Overview metrics (revenue, users, conversion rates)
+- KPI cards with trends and changes
+- Recent activity feed
+- Charts data (revenue by month, top products, user acquisition)
+- System alerts
+- Color-coded indicators
+- Actionable links
+
+```powershell
+.\schemock.exe start examples\dashboard-cards.json --port 3008
+# Open: http://localhost:3008/api/data
+```
+
+**Use Case:** Building admin dashboards, analytics panels, business intelligence tools, or monitoring systems.
+
+**Features Demonstrated:**
+- KPI cards with trend arrays
+- Multiple chart data structures
+- Activity feed with different types
+- Alert system with severity levels
+- Color coding and icons
+- Metadata and actionable items
+
+---
+
+### 10. Activity Feed (`activity-feed.json`)
+**Perfect for:** Social networks, activity timelines, notification systems
+
+Social activity feed with:
+- Activity items (posts, comments, likes, shares, follows)
+- Rich user information
+- Media attachments (images, videos, links)
+- Mentions and hashtags
+- Location data
+- Engagement statistics (likes, comments, shares, views)
+- Comments nested in activities
+- Privacy settings
+- Pagination controls
+- Trending topics and suggested users
+
+```powershell
+.\schemock.exe start examples\activity-feed.json --port 3009
+# Open: http://localhost:3009/api/data
+```
+
+**Use Case:** Building social feeds, activity timelines, notification systems, or real-time updates.
+
+**Features Demonstrated:**
+- Complex activity types with enums
+- Nested comments
+- Media arrays
+- User mentions and hashtags
+- Location coordinates
+- Engagement statistics
+- Trending algorithms
+- User recommendations
+
+---
+
 ## Testing All Examples
 
 Use the provided demo script to test all examples:

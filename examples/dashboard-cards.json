@@ -1,0 +1,210 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Dashboard Cards API",
+  "description": "Dashboard metrics, KPIs, and analytics cards for admin dashboards",
+  "type": "object",
+  "properties": {
+    "overview": {
+      "type": "object",
+      "properties": {
+        "totalRevenue": {
+          "type": "number",
+          "minimum": 0
+        },
+        "revenueChange": {
+          "type": "number"
+        },
+        "totalUsers": {
+          "type": "number",
+          "minimum": 0
+        },
+        "usersChange": {
+          "type": "number"
+        },
+        "activeUsers": {
+          "type": "number",
+          "minimum": 0
+        },
+        "activeUsersChange": {
+          "type": "number"
+        },
+        "conversionRate": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "conversionRateChange": {
+          "type": "number"
+        }
+      }
+    },
+    "cards": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string"
+          },
+          "value": {
+            "oneOf": [
+              { "type": "number" },
+              { "type": "string" }
+            ]
+          },
+          "change": {
+            "type": "number"
+          },
+          "changeType": {
+            "type": "string",
+            "enum": ["increase", "decrease", "neutral"]
+          },
+          "trend": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            },
+            "minItems": 7,
+            "maxItems": 30
+          },
+          "icon": {
+            "type": "string"
+          },
+          "color": {
+            "type": "string",
+            "enum": ["blue", "green", "yellow", "red", "purple", "orange"]
+          },
+          "link": {
+            "type": "string",
+            "format": "uri"
+          }
+        }
+      }
+    },
+    "recentActivity": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "type": {
+            "type": "string",
+            "enum": ["order", "signup", "payment", "refund", "review", "support"]
+          },
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "user": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string", "format": "uuid" },
+              "name": { "type": "string" },
+              "avatar": { "type": "string", "format": "uri" }
+            }
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "metadata": {
+            "type": "object",
+            "properties": {
+              "amount": { "type": "number" },
+              "orderId": { "type": "string" },
+              "status": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+    "charts": {
+      "type": "object",
+      "properties": {
+        "revenueByMonth": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "month": { "type": "string" },
+              "revenue": { "type": "number" },
+              "cost": { "type": "number" },
+              "profit": { "type": "number" }
+            }
+          },
+          "minItems": 12
+        },
+        "topProducts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "name": { "type": "string" },
+              "sales": { "type": "number", "minimum": 0 },
+              "revenue": { "type": "number", "minimum": 0 }
+            }
+          },
+          "maxItems": 10
+        },
+        "userAcquisition": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "source": {
+                "type": "string",
+                "enum": ["organic", "direct", "referral", "social", "paid"]
+              },
+              "count": { "type": "number", "minimum": 0 },
+              "percentage": { "type": "number", "minimum": 0, "maximum": 100 }
+            }
+          }
+        }
+      }
+    },
+    "alerts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "type": {
+            "type": "string",
+            "enum": ["info", "warning", "error", "success"]
+          },
+          "title": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "actionable": {
+            "type": "boolean"
+          },
+          "actionUrl": {
+            "type": "string",
+            "format": "uri"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      }
+    }
+  },
+  "required": ["overview", "cards", "recentActivity"]
+}

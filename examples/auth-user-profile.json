@@ -1,0 +1,88 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Auth User + Profile API",
+  "description": "Complete user authentication and profile data for React/Next.js apps",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Unique user identifier"
+    },
+    "username": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 30
+    },
+    "email": {
+      "type": "string",
+      "format": "email"
+    },
+    "avatar": {
+      "type": "string",
+      "format": "uri",
+      "description": "Profile picture URL"
+    },
+    "fullName": {
+      "type": "string"
+    },
+    "bio": {
+      "type": "string",
+      "maxLength": 500
+    },
+    "location": {
+      "type": "object",
+      "properties": {
+        "city": { "type": "string" },
+        "country": { "type": "string" },
+        "timezone": { "type": "string" }
+      }
+    },
+    "preferences": {
+      "type": "object",
+      "properties": {
+        "theme": {
+          "type": "string",
+          "enum": ["light", "dark", "auto"]
+        },
+        "language": { "type": "string" },
+        "notifications": {
+          "type": "object",
+          "properties": {
+            "email": { "type": "boolean" },
+            "push": { "type": "boolean" },
+            "sms": { "type": "boolean" }
+          }
+        }
+      }
+    },
+    "social": {
+      "type": "object",
+      "properties": {
+        "twitter": { "type": "string" },
+        "github": { "type": "string" },
+        "linkedin": { "type": "string" }
+      }
+    },
+    "stats": {
+      "type": "object",
+      "properties": {
+        "followers": { "type": "number", "minimum": 0 },
+        "following": { "type": "number", "minimum": 0 },
+        "posts": { "type": "number", "minimum": 0 }
+      }
+    },
+    "isVerified": {
+      "type": "boolean"
+    },
+    "joinedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "lastActiveAt": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "required": ["id", "username", "email", "joinedAt"]
+}

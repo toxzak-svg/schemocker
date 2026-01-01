@@ -1,13 +1,240 @@
 # Schemock
 
-> **Turn JSON schemas into live mock REST APIs in seconds for frontend/dev/test teams.**
+> **Build React/Next/Vue UIs before your backend exists: turn a JSON schema into a live API in under 60 seconds.**
 
 [![GitHub release](https://img.shields.io/github/v/release/toxzak-svg/schemock-app)](https://github.com/toxzak-svg/schemock-app/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Tests](https://img.shields.io/badge/tests-176%20passing-success)](.)
 [![Coverage](https://img.shields.io/badge/coverage-76.88%25-green)](.)
 
-**Schemock** is a lightweight, zero-configuration mock server that generates production-ready RESTful APIs from JSON schemas. Perfect for frontend developers who need working APIs before the backend is ready.
+**Stop waiting on backend teams or hardcoding mock data.** Schemock generates realistic, production-ready REST APIs from JSON schemas in seconds. Perfect for frontend developers building React, Next.js, Vue, or any modern web application.
+
+---
+
+## 🎯 What Schemock Does
+
+Copy a schema, run one command, and start building your UI:
+
+```json
+// user-schema.json
+{
+  "type": "object",
+  "properties": {
+    "id": { "type": "string", "format": "uuid" },
+    "name": { "type": "string" },
+    "email": { "type": "string", "format": "email" }
+  }
+}
+```
+
+```bash
+schemock start user-schema.json
+# → http://localhost:3000/api/data returns realistic user data
+```
+
+```javascript
+// React/Vue/Next.js - just fetch!
+fetch('http://localhost:3000/api/data')
+  .then(res => res.json())
+  .then(data => setUser(data));
+```
+
+**That's it.** No backend required. No hardcoded JSON. No waiting.
+
+---
+
+## 🎯 Frontend Quickstart
+
+Get your React, Next.js, or Vue app connected to a mock API in 5 minutes. No backend required.
+
+### ⚛️ Using Schemock with React (Vite/CRA)
+
+**Step 1: Install Schemock**
+```bash
+# macOS/Linux
+curl -fsSL https://raw.githubusercontent.com/toxzak-svg/schemock-app/main/install.sh | bash
+
+# Windows (PowerShell)
+iwr https://raw.githubusercontent.com/toxzak-svg/schemock-app/main/install.ps1 | iex
+```
+
+**Step 2: Start Schemock**
+```bash
+schemock start examples/auth-user-profile.json --port 3001
+```
+
+**Step 3: Fetch in React**
+```jsx
+// src/App.jsx
+import { useState, useEffect } from 'react';
+
+function App() {
+  const [user, setUser] = useState(null);
+
+  useEffect(() => {
+    fetch('http://localhost:3001/api/data')
+      .then(res => res.json())
+      .then(data => setUser(data));
+  }, []);
+
+  if (!user) return <div>Loading...</div>;
+
+  return (
+    <div>
+      <h1>Welcome, {user.fullName}!</h1>
+      <p>Email: {user.email}</p>
+      <p>Bio: {user.bio}</p>
+    </div>
+  );
+}
+
+export default App;
+```
+
+**That's it!** Your React app is now consuming a realistic mock API.
+
+---
+
+### 🚀 Using Schemock with Next.js App Router
+
+**Step 1: Start Schemock**
+```bash
+schemock start examples/product-list.json --port 3001
+```
+
+**Step 2: Fetch in Next.js Server Component**
+```jsx
+// app/products/page.jsx
+async function getProducts() {
+  const res = await fetch('http://localhost:3001/api/data', {
+    cache: 'no-store' // Disable caching for development
+  });
+  return res.json();
+}
+
+export default async function ProductsPage() {
+  const data = await getProducts();
+
+  return (
+    <div>
+      <h1>Products</h1>
+      {data.products.map(product => (
+        <div key={product.id}>
+          <h2>{product.name}</h2>
+          <p>${product.price}</p>
+          <p>Rating: {product.rating} / 5</p>
+        </div>
+      ))}
+    </div>
+  );
+}
+```
+
+**Step 3: Or use a Client Component**
+```jsx
+// app/products/page.jsx
+'use client';
+
+import { useState, useEffect } from 'react';
+
+export default function ProductsPage() {
+  const [data, setData] = useState(null);
+
+  useEffect(() => {
+    fetch('http://localhost:3001/api/data')
+      .then(res => res.json())
+      .then(data => setData(data));
+  }, []);
+
+  if (!data) return <div>Loading...</div>;
+
+  return (
+    <div>
+      <h1>Products ({data.pagination.total} total)</h1>
+      {data.products.map(product => (
+        <div key={product.id}>
+          <h2>{product.name}</h2>
+          <p>${product.price}</p>
+        </div>
+      ))}
+    </div>
+  );
+}
+```
+
+---
+
+### 💚 Using Schemock with Vue
+
+**Step 1: Start Schemock**
+```bash
+schemock start examples/dashboard-cards.json --port 3001
+```
+
+**Step 2: Fetch in Vue 3 (Composition API)**
+```vue
+<!-- src/App.vue -->
+<script setup>
+import { ref, onMounted } from 'vue';
+
+const dashboard = ref(null);
+
+onMounted(async () => {
+  const response = await fetch('http://localhost:3001/api/data');
+  dashboard.value = await response.json();
+});
+</script>
+
+<template>
+  <div v-if="dashboard">
+    <h1>Dashboard Overview</h1>
+    <div class="cards">
+      <div v-for="card in dashboard.cards" :key="card.id" class="card">
+        <h3>{{ card.title }}</h3>
+        <p>{{ card.value }}</p>
+        <span :class="card.changeType">
+          {{ card.change > 0 ? '+' : '' }}{{ card.change }}%
+        </span>
+      </div>
+    </div>
+  </div>
+  <div v-else>
+    Loading dashboard...
+  </div>
+</template>
+
+<style scoped>
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+}
+.card {
+  padding: 1rem;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+}
+.increase { color: green; }
+.decrease { color: red; }
+.neutral { color: gray; }
+</style>
+```
+
+---
+
+### 📦 Ready-Made Schemas for Common Screens
+
+Don't want to write schemas? Use these ready-to-run examples:
+
+| Use Case | Schema | Command | Port |
+|----------|--------|---------|------|
+| **User Profile / Auth** | `auth-user-profile.json` | `schemock start examples/auth-user-profile.json --port 3001` | 3001 |
+| **Product Catalog** | `product-list.json` | `schemock start examples/product-list.json --port 3002` | 3002 |
+| **Shopping Cart** | `cart.json` | `schemock start examples/cart.json --port 3003` | 3003 |
+| **Admin Dashboard** | `dashboard-cards.json` | `schemock start examples/dashboard-cards.json --port 3004` | 3004 |
+| **Social Feed** | `activity-feed.json` | `schemock start examples/activity-feed.json --port 3005` | 3005 |
+
+All schemas include realistic data, proper types, and are ready for production use.
 
 ---
 
@@ -76,6 +303,209 @@ That's it! You now have a working REST API with realistic mock data.
 - Realistic Faker-style data generation
 - Watch mode for rapid iteration
 - Multiple scenarios (slow, error-heavy, sad-path)
+
+---
+
+## 🤔 Why Not Just Hardcode Data / MSW / JSON Server?
+
+You might be wondering: *"Why not just hardcode JSON in my app or use existing mock tools?"* Here's why Schemock is different:
+
+### ❌ Hardcoding Mock Data in Your App
+
+**The Problem:**
+```javascript
+// hardcoded-data.js
+const users = [
+  { id: 1, name: "Alice", email: "alice@example.com" },
+  { id: 2, name: "Bob", email: "bob@example.com" }
+];
+
+// This data gets stale, needs manual updates, and clutters your codebase
+```
+
+**Why This Fails:**
+- **Data Rots:** Hardcoded data gets outdated when your real API changes
+- **Maintenance Hell:** You have to update mock data in multiple files across your codebase
+- **Inconsistent:** Different components might show different mock data
+- **No Realism:** Static data doesn't test loading states, errors, or edge cases
+- **Code Bloat:** Mock data sits in your production codebase
+
+**How Schemock Fixes It:**
+```json
+// user-schema.json - Single source of truth
+{
+  "type": "object",
+  "properties": {
+    "id": { "type": "string", "format": "uuid" },
+    "name": { "type": "string" },
+    "email": { "type": "string", "format": "email" }
+  }
+}
+```
+- ✅ Single schema file shared with backend team
+- ✅ Data is external to your app
+- ✅ All components fetch from the same endpoint
+- ✅ Test slow networks, errors, and edge cases with scenarios
+
+---
+
+### ❌ MSW (Mock Service Worker)
+
+**The Problem:**
+MSW is great for unit tests, but it's not designed for development workflows.
+
+**Why It's Painful for Development:**
+```javascript
+// handlers.js - Complex setup in your app code
+import { rest } from 'msw';
+
+const handlers = [
+  rest.get('/api/users', (req, res, ctx) => {
+    return res(
+      ctx.status(200),
+      ctx.json({ users: [...] }) // You still have to write this data
+    );
+  })
+];
+
+// Then configure worker in your app...
+setupWorker(...handlers).start();
+```
+
+**The Issues:**
+- **Setup Heavy:** Requires configuring handlers, workers, and interceptors
+- **In Your App Code:** Mock handlers live in your production codebase
+- **Complex for Multiple Scenarios:** Hard to toggle between fast/slow/error states
+- **Team Sharing:** Other developers need to set up their own handlers
+- **Limited to Browser:** Doesn't work for non-browser tools (Postman, curl)
+
+**How Schemock Fixes It:**
+```bash
+schemock start user-schema.json --scenario slow
+# That's it. No code changes. No setup in your app.
+```
+- ✅ Zero setup in your app
+- ✅ External mock server - works with any HTTP client
+- ✅ Easy scenario switching (slow, error-heavy, happy-path)
+- ✅ Team sharing: one schema file, everyone uses the same mock server
+- ✅ Works with Postman, curl, and all HTTP tools
+
+---
+
+### ❌ JSON Server
+
+**The Problem:**
+JSON Server is a classic choice, but it requires a database-like structure and manual data entry.
+
+**Why It's Frustrating:**
+```json
+// db.json - You have to manually write ALL the data
+{
+  "users": [
+    { "id": 1, "name": "Alice", "email": "alice@example.com" },
+    { "id": 2, "name": "Bob", "email": "bob@example.com" }
+    // ...you have to write 10+ users manually
+  ],
+  "posts": [
+    { "id": 1, "title": "Post 1", "userId": 1 }
+    // ...and all posts manually
+  ]
+}
+```
+
+**The Pain Points:**
+- **Manual Data Entry:** You have to write every single record by hand
+- **No Realistic Data:** You get what you type - no realistic UUIDs, emails, dates
+- **Static Data:** Each request returns the same static data
+- **Schema-First? No:** It's database-first, not schema-first
+- **No Schema Validation:** No guarantee your mock data matches your real API contract
+- **Limited Types:** Hard to model complex nested structures
+
+**How Schemock Fixes It:**
+```json
+// schema.json - Define the structure, get infinite realistic data
+{
+  "type": "object",
+  "properties": {
+    "users": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "name": { "type": "string" },
+          "email": { "type": "string", "format": "email" }
+        }
+      },
+      "minItems": 10 // Get 10 realistic users automatically
+    }
+  }
+}
+```
+- ✅ No manual data entry - define structure, get infinite data
+- ✅ Realistic data - proper UUIDs, emails, dates automatically
+- ✅ Schema-first - matches your backend contract exactly
+- ✅ Type-safe - validates against your schema
+- ✅ Complex structures - nested objects, arrays, enums all supported
+
+---
+
+### 🎯 When to Use Schemock vs Other Tools
+
+| Scenario | Use Schemock When... | Use MSW When... | Use JSON Server When... |
+|----------|---------------------|-------------------|----------------------|
+| **Development** | ✅ Building UI before backend exists | ❌ Overkill for simple dev | ⚠️ Only if you already have JSON data |
+| **Unit Tests** | ⚠️ Use MSW instead | ✅ Testing component isolation | ❌ Not suited for unit tests |
+| **E2E Tests** | ✅ Mock backend for Cypress/Playwright | ✅ Can use MSW | ⚠️ Possible but less ideal |
+| **API Design** | ✅ Prototype with frontend team | ❌ Not designed for this | ❌ Requires manual data entry |
+| **Schema Sharing** | ✅ Single source of truth | ❌ No schema concept | ❌ No schema concept |
+| **Team Collaboration** | ✅ Share schema files | ❌ Code-based mocks hard to share | ⚠️ Need to share JSON files |
+
+**Bottom Line:** 
+- **Use Schemock** for frontend development, API prototyping, and when you want a schema-driven approach
+- **Use MSW** for unit tests and component isolation
+- **Use JSON Server** only if you already have a JSON database to serve
+
+---
+
+## 📋 Schema-First Benefits: Why It Matters
+
+**Single Source of Truth**
+```json
+// user-schema.json - Frontend and backend both use this
+{
+  "type": "object",
+  "properties": {
+    "id": { "type": "string", "format": "uuid" },
+    "email": { "type": "string", "format": "email" }
+  }
+}
+```
+- Frontend: Uses Schemock to generate mock data from schema
+- Backend: Implements the real API from the same schema
+- Tests: Validates responses against the schema
+- Result: Everyone agrees on the contract before code is written
+
+**Change Propagation**
+When your schema changes:
+1. Update `user-schema.json` (1 file)
+2. Frontend sees updated mock data immediately (watch mode)
+3. Backend knows what to implement
+4. Tests automatically catch contract violations
+5. Documentation stays in sync
+
+**Reusable Across Tools**
+- **Schemock:** Generate mock APIs
+- **Ajv:** Validate requests/responses in tests
+- **TypeScript:** Generate TypeScript types from schema
+- **Swagger/OpenAPI:** Convert schema to API docs
+- **Form Libraries:** Generate form validation from schema
+
+**No More "It Works on My Machine"**
+- All developers use the same schema
+- CI/CD runs Schemock with the same schema
+- No hardcoded data differences between environments
+- Consistent behavior across development, testing, and staging
 
 
 ### One-Command Installation (Recommended)

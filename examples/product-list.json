@@ -1,0 +1,144 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Product List API",
+  "description": "E-commerce product catalog with filtering and pagination support",
+  "type": "object",
+  "properties": {
+    "products": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string",
+            "pattern": "^[a-z0-9-]+$"
+          },
+          "description": {
+            "type": "string"
+          },
+          "price": {
+            "type": "number",
+            "minimum": 0
+          },
+          "compareAtPrice": {
+            "type": "number",
+            "minimum": 0
+          },
+          "discountPercentage": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "images": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uri"
+            },
+            "minItems": 1
+          },
+          "category": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "name": { "type": "string" },
+              "slug": { "type": "string" }
+            }
+          },
+          "brand": {
+            "type": "string"
+          },
+          "stock": {
+            "type": "number",
+            "minimum": 0
+          },
+          "rating": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 5
+          },
+          "reviewsCount": {
+            "type": "number",
+            "minimum": 0
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "variants": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": { "type": "string" },
+                "name": { "type": "string" },
+                "sku": { "type": "string" },
+                "price": { "type": "number" },
+                "available": { "type": "boolean" }
+              }
+            }
+          },
+          "featured": {
+            "type": "boolean"
+          },
+          "new": {
+            "type": "boolean"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": ["id", "name", "price", "category"]
+      }
+    },
+    "pagination": {
+      "type": "object",
+      "properties": {
+        "page": { "type": "number", "minimum": 1 },
+        "limit": { "type": "number", "minimum": 1 },
+        "total": { "type": "number", "minimum": 0 },
+        "totalPages": { "type": "number", "minimum": 1 }
+      }
+    },
+    "filters": {
+      "type": "object",
+      "properties": {
+        "categories": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "priceRange": {
+          "type": "object",
+          "properties": {
+            "min": { "type": "number" },
+            "max": { "type": "number" }
+          }
+        },
+        "brands": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "rating": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 5
+        }
+      }
+    }
+  },
+  "required": ["products", "pagination"]
+}
