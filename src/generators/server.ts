@@ -16,17 +16,19 @@ export class ServerGenerator {
   private server: Server | null = null;
   private state: Record<string, any[]> = {};
   private version = require('../../package.json').version;
+  private connections: Set<any> = new Set();
+  private isStopping = false;
 
   constructor(config: MockServerConfig) {
     this.config = config;
     this.app = express();
     this.parser = new SchemaParser();
-    
+
     // Set log level from config
     if (config.server.logLevel) {
       setLogLevel(config.server.logLevel);
     }
-    
+
     this.setupMiddleware();
     this.setupRoutes();
   }
@@ -53,7 +55,7 @@ export class ServerGenerator {
     // Request logging middleware
     this.app.use((req: Request, res: Response, next: NextFunction) => {
       const startTime = Date.now();
-      
+
       // Log request
       log.debug(`Incoming request`, {
         module: 'server',
@@ -65,7 +67,7 @@ export class ServerGenerator {
 
       // Override res.json to capture status code and timing
       const originalJson = res.json.bind(res);
-      res.json = function(body: any) {
+      res.json = function (body: any) {
         const duration = Date.now() - startTime;
         log.request(req.method, req.path, res.statusCode, duration);
         return originalJson(body);
@@ -82,7 +84,7 @@ export class ServerGenerator {
         method: req.method,
         path: req.path
       });
-      
+
       res.status(500).json({
         error: 'Internal Server Error',
         message: this.config.server.logLevel === 'debug' ? err.message : 'An error occurred'
@@ -190,7 +192,7 @@ export class ServerGenerator {
           }
         }
       ];
-      
+
       res.json({
         schemas: publicSchemas,
         total: publicSchemas.length,
@@ -210,7 +212,7 @@ export class ServerGenerator {
         method: req.method,
         path: req.path
       });
-      
+
       res.status(404).json({
         error: 'Not Found',
         message: `No route found for ${req.method} ${req.path}`
@@ -220,11 +222,11 @@ export class ServerGenerator {
 
   private setupRoute(routeConfig: RouteConfig): void {
     const { path, method, response, statusCode = 200, delay = 0, headers = {}, schema } = routeConfig;
-    
+
     const routeHandler = async (req: Request, res: Response, next: NextFunction) => {
       const startTime = Date.now();
       const scenario = this.config.server.scenario;
-      
+
       try {
         // Apply delay if specified or if scenario is slow
         let effectiveDelay = delay;
@@ -292,7 +294,7 @@ export class ServerGenerator {
         if (typeof response === 'function') {
           // If response is a function, call it with request and state
           const result = await Promise.resolve(response(req, this.state));
-          
+
           // Add branding metadata to response (unless disabled)
           const brandedResult = this.addBranding(result);
           res.status(statusCode).json(brandedResult);
@@ -304,7 +306,7 @@ export class ServerGenerator {
           // For other types, send as is
           res.status(statusCode).send(response);
         }
-        
+
         const duration = Date.now() - startTime;
         log.debug('Route handler completed', {
           module: 'server',
@@ -338,7 +340,7 @@ export class ServerGenerator {
       default:
         throw new ServerError(`Unsupported HTTP method: ${method}`, { method });
     }
-    
+
     log.debug(`Route registered`, {
       module: 'server',
       method: method.toUpperCase(),
@@ -349,25 +351,45 @@ export class ServerGenerator {
   public async start(): Promise<void> {
     return new Promise((resolve, reject) => {
       const port = this.config.server.port !== undefined ? this.config.server.port : 3000;
-      
+
+      this.isStopping = false;
+
       this.server = this.app.listen(port, () => {
         log.info(`Mock server started`, {
           module: 'server',
           port,
           url: `http://localhost:${port}`
         });
-        
+
         // Log all available routes in debug mode
         if (this.config.server.logLevel === 'debug') {
           log.debug('Available routes:', {
             module: 'server',
-            routes: Object.entries(this.config.routes).map(([path, config]) => 
+            routes: Object.entries(this.config.routes).map(([path, config]) =>
               `${config.method.toUpperCase()} ${path}`
             )
           });
         }
-        
+
         resolve();
+      });
+
+      // Track all connections for proper cleanup
+      this.server.on('connection', (socket) => {
+        if (this.isStopping) {
+          // Reject new connections if we're stopping
+          socket.destroy();
+        } else {
+          this.connections.add(socket);
+
+          socket.on('close', () => {
+            this.connections.delete(socket);
+          });
+
+          socket.on('error', () => {
+            this.connections.delete(socket);
+          });
+        }
       });
 
       this.server.on('error', (error: NodeJS.ErrnoException) => {
@@ -399,15 +421,78 @@ export class ServerGenerator {
       return;
     }
 
+    this.isStopping = true;
+
     return new Promise((resolve, reject) => {
-      this.server!.close((err) => {
-        if (err) {
-          log.error('Error stopping server', {
-            module: 'server',
-            error: err
+      const timeout = setTimeout(() => {
+        // Force close all connections if timeout is reached
+        log.warn('Server stop timeout, forcing connections closed', {
+          module: 'server'
+        });
+        this.connections.forEach(socket => {
+          try {
+            socket.destroy();
+          } catch (e) {
+            // Ignore errors when destroying sockets
+          }
+        });
+        this.connections.clear();
+
+        if (this.server) {
+          this.server.close((err) => {
+            const errno = err as NodeJS.ErrnoException;
+            if (err && errno.code !== 'ERR_SERVER_NOT_RUNNING') {
+              log.error('Error stopping server (forced)', {
+                module: 'server',
+                error: err
+              });
+            }
+            this.server = null;
+            log.info('Server stopped (forced)', { module: 'server' });
+            resolve();
           });
-          reject(new ServerError('Failed to stop server', { originalError: err }));
         } else {
+          this.server = null;
+          resolve();
+        }
+      }, 5000); // 5 second timeout for graceful shutdown
+
+      this.server!.close((err) => {
+        clearTimeout(timeout);
+
+        if (err) {
+          const errno = err as NodeJS.ErrnoException;
+          if (errno.code === 'ERR_SERVER_NOT_RUNNING') {
+            // Server already stopped, just clean up
+            this.connections.forEach(socket => {
+              try {
+                socket.destroy();
+              } catch (e) {
+                // Ignore errors when destroying sockets
+              }
+            });
+            this.connections.clear();
+            this.server = null;
+            log.info('Server stopped (was not running)', { module: 'server' });
+            resolve();
+          } else {
+            log.error('Error stopping server', {
+              module: 'server',
+              error: err
+            });
+            reject(new ServerError('Failed to stop server', { originalError: err }));
+          }
+        } else {
+          // Close all remaining connections
+          this.connections.forEach(socket => {
+            try {
+              socket.destroy();
+            } catch (e) {
+              // Ignore errors when destroying sockets
+            }
+          });
+          this.connections.clear();
+
           this.server = null;
           log.info('Server stopped', { module: 'server' });
           resolve();
@@ -421,9 +506,20 @@ export class ServerGenerator {
    */
   public async restart(newConfig?: MockServerConfig): Promise<void> {
     log.info('Restarting server', { module: 'server' });
-    
-    await this.stop();
-    
+
+    try {
+      await this.stop();
+    } catch (error) {
+      // Log error but continue with restart
+      log.warn('Error during server stop, continuing with restart', {
+        module: 'server',
+        error
+      });
+    }
+
+    // Small delay to ensure port is fully released
+    await new Promise(resolve => setTimeout(resolve, 100));
+
     if (newConfig) {
       this.config = newConfig;
       if (newConfig.server.logLevel) {
@@ -433,7 +529,7 @@ export class ServerGenerator {
       this.setupMiddleware();
       this.setupRoutes();
     }
-    
+
     await this.start();
   }
 
@@ -496,14 +592,14 @@ export class ServerGenerator {
       return (req: Request, state: any) => {
         const parts = routePath.split('/').filter(p => p && p !== 'api');
         const resource = parts[0] || 'data';
-        
+
         if (!state[resource]) {
           state[resource] = [];
         }
 
-        const isSchema = routeDef.response && typeof routeDef.response === 'object' && 
-          (routeDef.response.type || routeDef.response.$ref || routeDef.response.oneOf || 
-           routeDef.response.anyOf || routeDef.response.allOf);
+        const isSchema = routeDef.response && typeof routeDef.response === 'object' &&
+          (routeDef.response.type || routeDef.response.$ref || routeDef.response.oneOf ||
+            routeDef.response.anyOf || routeDef.response.allOf);
 
         const responseSchema = isSchema ? routeDef.response : schema;
 
@@ -511,14 +607,14 @@ export class ServerGenerator {
           if (routePath.endsWith('/:id')) {
             const item = state[resource].find((i: any) => i.id === req.params.id);
             if (item) {
-              return wrap ? { 
-                success: true, 
+              return wrap ? {
+                success: true,
                 message: 'Mock data retrieved',
                 timestamp: new Date().toISOString(),
-                data: item 
+                data: item
               } : item;
             }
-            
+
             // Fallback: generate, tie to ID, and store in state for consistency
             let data = isSchema ? SchemaParser.parse(responseSchema, schema, new Set(), options.strict, resource) : routeDef.response;
             if (data && typeof data === 'object' && !Array.isArray(data)) {
@@ -527,11 +623,11 @@ export class ServerGenerator {
               (data as any).id = req.params.id;
               state[resource].push(data);
             }
-            return wrap ? { 
-              success: true, 
+            return wrap ? {
+              success: true,
               message: 'Mock data generated',
               timestamp: new Date().toISOString(),
-              data 
+              data
             } : data;
           } else {
             // Collection GET logic - only if it's a default route (wrap=true) or explicitly a schema array
@@ -614,7 +710,7 @@ export class ServerGenerator {
         const method = routeDef.method.toLowerCase();
         const path = routeDef.path;
         const key = `${method}:${path}`;
-        
+
         routes[key] = {
           path,
           method: method as any,

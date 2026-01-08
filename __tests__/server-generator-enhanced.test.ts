@@ -9,10 +9,21 @@ describe('ServerGenerator Enhanced', () => {
   let server: ServerGenerator | null = null;
 
   afterEach(async () => {
-    if (server && server.isRunning()) {
-      await server.stop();
+    // Ensure server is properly stopped with error handling
+    if (server) {
+      try {
+        if (server.isRunning()) {
+          await server.stop();
+        }
+      } catch (error) {
+        // Log error but don't fail the test
+        console.error('Error stopping server in afterEach:', error);
+      }
+      server = null;
     }
-    server = null;
+
+    // Small delay to ensure port is fully released
+    await new Promise(resolve => setTimeout(resolve, 100));
   });
 
   describe('Constructor and Initialization', () => {
@@ -513,7 +524,7 @@ describe('ServerGenerator Enhanced', () => {
         }
       };
 
-      server = ServerGenerator.generateFromSchema(schema, { 
+      server = ServerGenerator.generateFromSchema(schema, {
         port: TEST_PORT,
         resourceName: 'custom'
       });
@@ -529,7 +540,7 @@ describe('ServerGenerator Enhanced', () => {
         }
       };
 
-      server = ServerGenerator.generateFromSchema(schema, { 
+      server = ServerGenerator.generateFromSchema(schema, {
         port: TEST_PORT,
         basePath: '/v1/custom'
       });
