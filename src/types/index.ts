@@ -1,5 +1,11 @@
 export type JSONSchemaType = 'string' | 'number' | 'integer' | 'boolean' | 'object' | 'array' | 'null';
 
+export type JSONValue = string | number | boolean | null | JSONObject | JSONArray;
+export type JSONObject = { [key: string]: JSONValue };
+export type JSONArray = JSONValue[];
+
+export type SchemaEnumValue = string | number | boolean | null;
+
 export interface Schema {
   $schema?: string;
   $ref?: string;
@@ -9,8 +15,8 @@ export interface Schema {
   properties?: Record<string, Schema>;
   items?: Schema | Schema[];
   required?: string[];
-  enum?: any[];
-  default?: any;
+  enum?: SchemaEnumValue[];
+  default?: JSONValue;
   format?: string;
   minLength?: number;
   maxLength?: number;
@@ -27,15 +33,15 @@ export interface Schema {
   anyOf?: Schema[];
   allOf?: Schema[];
   not?: Schema;
-  const?: any;
+  const?: JSONValue;
   'x-schemock-routes'?: RouteDefinition[];
-  [key: string]: any; // Allow for additional properties
+  [key: string]: unknown; // Allow for additional properties (extension points)
 }
 
 export interface RouteDefinition {
   path: string;
   method: 'get' | 'post' | 'put' | 'delete' | 'patch';
-  response: any; // Can be a fixed object or a Schema to be parsed
+  response: JSONValue | Schema; // Can be a fixed JSON value or a Schema to be parsed
   statusCode?: number;
   delay?: number;
   headers?: Record<string, string>;
@@ -55,17 +61,121 @@ export interface ServerOptions {
   hideBranding?: boolean; // Disable Schemock branding (for paid users)
 }
 
+// Type for request object (minimal interface, actual implementation uses Express Request)
+export interface RouteRequest {
+  params?: Record<string, string>;
+  query?: Record<string, unknown>;
+  body?: unknown;
+  method?: string;
+  path?: string;
+  headers?: Record<string, string>;
+}
+
+// Type for server state
+export type ServerState = Record<string, JSONValue[]>;
+
+// Response handler function type
+export type ResponseHandler = (req: RouteRequest, state: ServerState) => JSONValue | Promise<JSONValue>;
+
+// Response type: can be a static value, a Schema, or a handler function
+export type RouteResponse = JSONValue | Schema | ResponseHandler;
+
 export interface RouteConfig {
   path: string;
   method: 'get' | 'post' | 'put' | 'delete' | 'patch';
-  response: any | ((req: any, state?: any) => any);
+  response: RouteResponse;
   statusCode?: number;
   delay?: number;
   headers?: Record<string, string>;
-  schema?: any;
+  schema?: Schema;
 }
 
 export interface MockServerConfig {
   server: ServerOptions;
   routes: Record<string, RouteConfig>;
+}
+
+// Type guards for runtime type checking
+
+/**
+ * Type guard to check if a value is a valid JSONValue
+ */
+export function isJSONValue(value: unknown): value is JSONValue {
+  if (value === null || value === undefined) {
+    return true;
+  }
+  const type = typeof value;
+  return (
+    type === 'string' ||
+    type === 'number' ||
+    type === 'boolean' ||
+    (type === 'object' && (Array.isArray(value) || isJSONObject(value)))
+  );
+}
+
+/**
+ * Type guard to check if a value is a JSONObject
+ */
+export function isJSONObject(value: unknown): value is JSONObject {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+/**
+ * Type guard to check if a value is a JSONArray
+ */
+export function isJSONArray(value: unknown): value is JSONArray {
+  return Array.isArray(value);
+}
+
+/**
+ * Type guard to check if a value is a Schema
+ */
+export function isSchema(value: unknown): value is Schema {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return false;
+  }
+
+  const schema = value as Record<string, unknown>;
+
+  // Check for common schema properties
+  return (
+    '$schema' in schema ||
+    '$ref' in schema ||
+    'type' in schema ||
+    'properties' in schema ||
+    'items' in schema ||
+    'oneOf' in schema ||
+    'anyOf' in schema ||
+    'allOf' in schema ||
+    'not' in schema ||
+    'enum' in schema ||
+    'const' in schema ||
+    'required' in schema
+  );
+}
+
+/**
+ * Type guard to check if a value is a ResponseHandler function
+ */
+export function isResponseHandler(value: unknown): value is ResponseHandler {
+  return typeof value === 'function';
+}
+
+/**
+ * Type guard to check if a value is a valid RouteResponse
+ */
+export function isRouteResponse(value: unknown): value is RouteResponse {
+  return isJSONValue(value) || isSchema(value) || isResponseHandler(value);
+}
+
+/**
+ * Type guard to check if a value is a valid SchemaEnumValue
+ */
+export function isSchemaEnumValue(value: unknown): value is SchemaEnumValue {
+  return (
+    value === null ||
+    typeof value === 'string' ||
+    typeof value === 'number' ||
+    typeof value === 'boolean'
+  );
 }

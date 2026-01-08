@@ -2,7 +2,15 @@ import express, { Application, Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import { Server } from 'http';
 import { v4 as uuidv4 } from 'uuid';
-import { ServerOptions, RouteConfig, MockServerConfig } from '../types';
+import {
+  ServerOptions,
+  RouteConfig,
+  MockServerConfig,
+  RouteRequest,
+  ServerState,
+  JSONValue,
+  Schema
+} from '../types';
 import { SchemaParser } from '../parsers/schema';
 import { PortError, ServerError, ValidationError } from '../errors';
 import { log, setLogLevel } from '../utils/logger';
@@ -14,9 +22,9 @@ export class ServerGenerator {
   private config: MockServerConfig;
   private parser: SchemaParser;
   private server: Server | null = null;
-  private state: Record<string, any[]> = {};
+  private state: ServerState = {};
   private version = require('../../package.json').version;
-  private connections: Set<any> = new Set();
+  private connections: Set<unknown> = new Set();
   private isStopping = false;
 
   constructor(config: MockServerConfig) {
@@ -67,7 +75,7 @@ export class ServerGenerator {
 
       // Override res.json to capture status code and timing
       const originalJson = res.json.bind(res);
-      res.json = function (body: any) {
+      res.json = function (body: unknown) {
         const duration = Date.now() - startTime;
         log.request(req.method, req.path, res.statusCode, duration);
         return originalJson(body);
@@ -270,7 +278,7 @@ export class ServerGenerator {
           if (schema) {
             try {
               validateData(req.body, schema);
-            } catch (error: any) {
+            } catch (error: unknown) {
               if (error instanceof ValidationError) {
                 log.warn('Request validation failed (strict mode)', {
                   module: 'server',
@@ -293,7 +301,15 @@ export class ServerGenerator {
         // Handle different response types
         if (typeof response === 'function') {
           // If response is a function, call it with request and state
-          const result = await Promise.resolve(response(req, this.state));
+          const routeReq: RouteRequest = {
+            params: req.params as Record<string, string> | undefined,
+            query: req.query,
+            body: req.body,
+            method: req.method,
+            path: req.path,
+            headers: req.headers as Record<string, string>
+          };
+          const result = await Promise.resolve(response(routeReq, this.state));
 
           // Add branding metadata to response (unless disabled)
           const brandedResult = this.addBranding(result);
@@ -431,7 +447,9 @@ export class ServerGenerator {
         });
         this.connections.forEach(socket => {
           try {
-            socket.destroy();
+            if (typeof socket === 'object' && socket !== null && 'destroy' in socket && typeof socket.destroy === 'function') {
+              socket.destroy();
+            }
           } catch (e) {
             // Ignore errors when destroying sockets
           }
@@ -466,7 +484,9 @@ export class ServerGenerator {
             // Server already stopped, just clean up
             this.connections.forEach(socket => {
               try {
-                socket.destroy();
+                if (typeof socket === 'object' && socket !== null && 'destroy' in socket && typeof socket.destroy === 'function') {
+                  socket.destroy();
+                }
               } catch (e) {
                 // Ignore errors when destroying sockets
               }
@@ -486,7 +506,9 @@ export class ServerGenerator {
           // Close all remaining connections
           this.connections.forEach(socket => {
             try {
-              socket.destroy();
+              if (typeof socket === 'object' && socket !== null && 'destroy' in socket && typeof socket.destroy === 'function') {
+                socket.destroy();
+              }
             } catch (e) {
               // Ignore errors when destroying sockets
             }
@@ -554,7 +576,7 @@ export class ServerGenerator {
   /**
    * Add branding metadata to response (unless disabled for paid users)
    */
-  private addBranding(data: any): any {
+  private addBranding(data: unknown): unknown {
     // Skip branding if explicitly disabled
     if (this.config.server.hideBranding) {
       return data;
@@ -581,15 +603,15 @@ export class ServerGenerator {
     };
   }
 
-  public static generateFromSchema(schema: any, options: Omit<ServerOptions, 'port'> & { port?: number } = { port: 3000 }): ServerGenerator {
+  public static generateFromSchema(schema: Schema, options: Omit<ServerOptions, 'port'> & { port?: number } = { port: 3000 }): ServerGenerator {
     const port = options.port !== undefined ? options.port : 3000;
     const routes: Record<string, RouteConfig> = {};
 
     const resourceName = options.resourceName || (schema.title ? schema.title.toLowerCase() + (schema.title.toLowerCase().endsWith('s') ? '' : 's') : 'data');
     const basePath = options.basePath || `/api/${resourceName}`;
 
-    const createHandler = (method: string, routePath: string, routeDef: any, wrap: boolean = true) => {
-      return (req: Request, state: any) => {
+    const createHandler = (method: string, routePath: string, routeDef: { response?: JSONValue | Schema }, wrap: boolean = true) => {
+      return (req: RouteRequest, state: ServerState): JSONValue => {
         const parts = routePath.split('/').filter(p => p && p !== 'api');
         const resource = parts[0] || 'data';
 
@@ -598,14 +620,16 @@ export class ServerGenerator {
         }
 
         const isSchema = routeDef.response && typeof routeDef.response === 'object' &&
-          (routeDef.response.type || routeDef.response.$ref || routeDef.response.oneOf ||
-            routeDef.response.anyOf || routeDef.response.allOf);
+          ('type' in routeDef.response || '$ref' in routeDef.response || 'oneOf' in routeDef.response ||
+            'anyOf' in routeDef.response || 'allOf' in routeDef.response);
 
-        const responseSchema = isSchema ? routeDef.response : schema;
+        const responseSchema: Schema = (isSchema && routeDef.response) ? routeDef.response as Schema : schema;
 
         if (method === 'get') {
           if (routePath.endsWith('/:id')) {
-            const item = state[resource].find((i: any) => i.id === req.params.id);
+            const item = state[resource].find((i: JSONValue) =>
+              typeof i === 'object' && i !== null && 'id' in i && i.id === req.params?.id
+            );
             if (item) {
               return wrap ? {
                 success: true,
@@ -616,12 +640,13 @@ export class ServerGenerator {
             }
 
             // Fallback: generate, tie to ID, and store in state for consistency
-            let data = isSchema ? SchemaParser.parse(responseSchema, schema, new Set(), options.strict, resource) : routeDef.response;
-            if (data && typeof data === 'object' && !Array.isArray(data)) {
+            let data = isSchema ? SchemaParser.parse(responseSchema, schema, new Set(), options.strict, resource) : (routeDef.response as JSONValue);
+            if (data && typeof data === 'object' && !Array.isArray(data) && req.params?.id) {
               // Clone to avoid mutating the original routeDef.response
-              data = { ...data };
-              (data as any).id = req.params.id;
-              state[resource].push(data);
+              const dataObj = data as Record<string, JSONValue>;
+              dataObj.id = req.params.id;
+              state[resource].push(dataObj);
+              data = dataObj;
             }
             return wrap ? {
               success: true,
@@ -635,20 +660,23 @@ export class ServerGenerator {
               // Return list from state
               if (state[resource].length === 0) {
                 // Populate with some initial data
-                const generated = isSchema ? SchemaParser.parse(responseSchema, schema, new Set(), options.strict, resource) : routeDef.response;
+                const generated = isSchema ? SchemaParser.parse(responseSchema, schema, new Set(), options.strict, resource) : (routeDef.response as JSONValue);
                 if (Array.isArray(generated)) {
                   state[resource] = generated;
                 } else if (isSchema) {
                   for (let i = 0; i < 3; i++) {
                     const item = SchemaParser.parse(responseSchema, schema, new Set(), options.strict, resource);
-                    if (item && typeof item === 'object' && !Array.isArray(item) && !(item as any).id) {
-                      (item as any).id = uuidv4();
+                    if (item && typeof item === 'object' && !Array.isArray(item)) {
+                      const itemObj = item as Record<string, JSONValue>;
+                      if (!itemObj.id) {
+                        itemObj.id = uuidv4();
+                      }
                     }
                     state[resource].push(item);
                   }
                 } else {
                   // Static non-array response, don't treat as collection
-                  return routeDef.response;
+                  return routeDef.response as JSONValue;
                 }
               }
               return wrap ? {
@@ -660,16 +688,17 @@ export class ServerGenerator {
               } : state[resource];
             } else {
               // Static or non-wrapped GET
-              if (isSchema) return SchemaParser.parse(routeDef.response, schema, new Set(), options.strict, resource);
-              return routeDef.response;
+              if (isSchema) return SchemaParser.parse(routeDef.response as Schema, schema, new Set(), options.strict, resource);
+              return routeDef.response as JSONValue;
             }
           }
         }
 
         if (method === 'post') {
-          const newItem = {
-            id: req.body.id || uuidv4(),
-            ...req.body,
+          const bodyObj = typeof req.body === 'object' && req.body !== null ? req.body as Record<string, unknown> : {};
+          const newItem: Record<string, JSONValue> = {
+            id: (bodyObj.id as string) || uuidv4(),
+            ...bodyObj as Record<string, JSONValue>,
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString()
           };
@@ -678,11 +707,17 @@ export class ServerGenerator {
         }
 
         if (method === 'put' && routePath.endsWith('/:id')) {
-          const index = state[resource].findIndex((i: any) => i.id === req.params.id);
-          const updatedItem = {
-            ...(index >= 0 ? state[resource][index] : {}),
-            ...req.body,
-            id: req.params.id,
+          const index = state[resource].findIndex((i: JSONValue) =>
+            typeof i === 'object' && i !== null && 'id' in i && i.id === req.params?.id
+          );
+          const bodyObj = typeof req.body === 'object' && req.body !== null ? req.body as Record<string, unknown> : {};
+          const existingItem = index >= 0 && typeof state[resource][index] === 'object' && state[resource][index] !== null
+            ? state[resource][index] as Record<string, unknown>
+            : {};
+          const updatedItem: Record<string, JSONValue> = {
+            ...(existingItem as Record<string, JSONValue>),
+            ...bodyObj as Record<string, JSONValue>,
+            id: req.params?.id || '',
             updatedAt: new Date().toISOString()
           };
           if (index >= 0) {
@@ -695,30 +730,34 @@ export class ServerGenerator {
 
         if (method === 'delete' && routePath.endsWith('/:id')) {
           const initialLength = state[resource].length;
-          state[resource] = state[resource].filter((i: any) => i.id !== req.params.id);
+          state[resource] = state[resource].filter((i: JSONValue) =>
+            typeof i === 'object' && i !== null && 'id' in i && i.id !== req.params?.id
+          );
           return wrap ? { success: true, message: 'Deleted successfully' } : { message: 'Deleted successfully' };
         }
 
         // Default behavior if not matched
-        if (isSchema) return SchemaParser.parse(routeDef.response, schema, new Set(), options.strict, resource);
-        return routeDef.response || SchemaParser.parse(schema, undefined, new Set(), options.strict, resource);
+        if (isSchema) return SchemaParser.parse(routeDef.response as Schema, schema, new Set(), options.strict, resource);
+        return (routeDef.response as JSONValue) || SchemaParser.parse(schema, undefined, new Set(), options.strict, resource);
       };
     };
 
     if (schema['x-schemock-routes'] && Array.isArray(schema['x-schemock-routes'])) {
-      schema['x-schemock-routes'].forEach((routeDef: any) => {
+      schema['x-schemock-routes'].forEach((routeDef: { path: string; method: string; response?: JSONValue | Schema; statusCode?: number; delay?: number; headers?: Record<string, string> }) => {
         const method = routeDef.method.toLowerCase();
         const path = routeDef.path;
         const key = `${method}:${path}`;
 
         routes[key] = {
           path,
-          method: method as any,
+          method: method as 'get' | 'post' | 'put' | 'delete' | 'patch',
           statusCode: routeDef.statusCode || (method === 'post' ? 201 : 200),
           delay: routeDef.delay || 0,
           headers: routeDef.headers || {},
           response: createHandler(method, path, routeDef, false), // Don't wrap x-schemock-routes
-          schema: routeDef.response
+          schema: routeDef.response && typeof routeDef.response === 'object' && 'type' in routeDef.response
+            ? routeDef.response as Schema
+            : undefined
         };
       });
     } else {
@@ -735,7 +774,7 @@ export class ServerGenerator {
         const key = `${method}:${path}`;
         routes[key] = {
           path,
-          method: method as any,
+          method: method as 'get' | 'post' | 'put' | 'delete' | 'patch',
           statusCode: method === 'post' ? 201 : (method === 'delete' ? 204 : 200),
           response: createHandler(method, path, { response: schema }),
           schema: schema
