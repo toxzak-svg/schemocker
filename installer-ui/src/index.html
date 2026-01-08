@@ -1,11 +1,13 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Schemock Installer</title>
     <link rel="stylesheet" href="styles.css">
 </head>
+
 <body>
     <div class="installer-container">
         <header class="installer-header">
@@ -23,10 +25,10 @@
             <div class="logo">Schemock</div>
             <div class="subtitle">Mock Server Generator</div>
             <div class="description">
-                Welcome to the Schemock installation wizard. This will guide you through the installation process 
+                Welcome to the Schemock installation wizard. This will guide you through the installation process
                 of Schemock Mock Server Generator on your Windows system.
             </div>
-            
+
             <div class="system-requirements">
                 <h3>System Requirements</h3>
                 <ul>
@@ -41,15 +43,16 @@
         <div id="path-page" class="installer-content">
             <h2>Installation Location</h2>
             <p>Choose the folder where you want to install Schemock:</p>
-            
+
             <div class="form-group">
                 <label for="install-path">Installation Path:</label>
                 <div class="path-browse">
-                    <input type="text" id="install-path" class="form-control path-input" value="C:\Program Files\Schemock">
+                    <input type="text" id="install-path" class="form-control path-input"
+                        value="C:\Program Files\Schemock">
                     <button class="browse-btn" onclick="browsePath()">Browse...</button>
                 </div>
             </div>
-            
+
             <div class="form-group">
                 <label>Available Space: <span id="available-space">Checking...</span></label>
                 <label>Required Space: 100MB</label>
@@ -60,36 +63,38 @@
         <div id="components-page" class="installer-content">
             <h2>Select Components</h2>
             <p>Choose which components to install:</p>
-            
+
             <div class="component-list">
                 <div class="component-item">
                     <input type="checkbox" id="component-core" class="component-checkbox" checked disabled>
                     <label for="component-core" class="component-name">Schemock Core Application</label>
                     <span class="component-size">73MB</span>
                 </div>
-                
+
                 <div class="component-item">
                     <input type="checkbox" id="component-docs" class="component-checkbox" checked>
                     <label for="component-docs" class="component-name">Documentation</label>
                     <span class="component-size">5MB</span>
                 </div>
-                
+
                 <div class="component-item">
                     <input type="checkbox" id="component-examples" class="component-checkbox" checked>
                     <label for="component-examples" class="component-name">Example Schemas</label>
                     <span class="component-size">1MB</span>
                 </div>
-                
+
                 <div class="component-item">
                     <input type="checkbox" id="component-start-menu" class="component-checkbox" checked>
                     <label for="component-start-menu" class="component-name">Start Menu Shortcuts</label>
-                    <span class="component-size">< 1MB</span>
+                    <span class="component-size">
+                        < 1MB</span>
                 </div>
-                
+
                 <div class="component-item">
                     <input type="checkbox" id="component-desktop" class="component-checkbox" checked>
                     <label for="component-desktop" class="component-name">Desktop Shortcut</label>
-                    <span class="component-size">< 1MB</span>
+                    <span class="component-size">
+                        < 1MB</span>
                 </div>
             </div>
         </div>
@@ -98,7 +103,7 @@
         <div id="summary-page" class="installer-content summary-page">
             <h2>Ready to Install</h2>
             <p>Please review the installation summary below:</p>
-            
+
             <div class="summary-section">
                 <h3>Installation Details</h3>
                 <div class="summary-details">
@@ -107,7 +112,7 @@
                     <p><strong>Components:</strong> <span id="summary-components">All selected</span></p>
                 </div>
             </div>
-            
+
             <div class="summary-section">
                 <h3>System Requirements</h3>
                 <div class="summary-details">
@@ -124,7 +129,7 @@
             <div class="installation-icon">⚙️</div>
             <div class="installation-status">Installing Schemock...</div>
             <div class="installation-message" id="installation-message">Preparing installation...</div>
-            
+
             <div class="progress-container">
                 <div class="progress-bar">
                     <div class="progress-fill" id="progress-fill">
@@ -139,7 +144,7 @@
             <div class="success-icon">✅</div>
             <div class="success-title">Installation Complete!</div>
             <div class="success-message">
-                Schemock has been successfully installed on your system. You can now start using it immediately 
+                Schemock has been successfully installed on your system. You can now start using it immediately
                 from the Start Menu or Desktop shortcuts.
             </div>
             <div class="success-actions">
@@ -150,10 +155,12 @@
 
         <footer class="installer-footer">
             <div class="navigation-buttons">
-                <button id="btn-back" class="btn btn-secondary" onclick="navigateBack()" style="display: none;">Back</button>
+                <button id="btn-back" class="btn btn-secondary" onclick="navigateBack()"
+                    style="display: none;">Back</button>
                 <button id="btn-next" class="btn btn-primary" onclick="navigateNext()">Next</button>
                 <button id="btn-cancel" class="btn btn-secondary" onclick="cancelInstallation()">Cancel</button>
-                <button id="btn-install" class="btn btn-primary" onclick="startInstallation()" style="display: none;">Install</button>
+                <button id="btn-install" class="btn btn-primary" onclick="startInstallation()"
+                    style="display: none;">Install</button>
             </div>
             <div class="footer-info">
                 <span>© 2023 Schemock Team. All rights reserved.</span>
@@ -161,13 +168,26 @@
         </footer>
     </div>
 
+    <!-- Confirmation Modal -->
+    <div id="modal-overlay" class="modal-overlay">
+        <div class="modal">
+            <div class="modal-icon" id="modal-icon">❓</div>
+            <h3 id="modal-title">Confirm Action</h3>
+            <p id="modal-message">Are you sure?</p>
+            <div class="modal-buttons">
+                <button class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+                <button class="btn btn-primary" id="modal-confirm" onclick="confirmModal()">Confirm</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         const { ipcRenderer } = require('electron');
-        
+
         let currentPage = 'welcome';
         let appConfig = {};
         let installerState = {};
-        
+
         // Page navigation
         const pages = ['welcome', 'path', 'components', 'summary', 'installation', 'success'];
         let currentPageIndex = 0;
@@ -187,10 +207,10 @@
         function updateUI() {
             // Update header
             document.getElementById('status-text').textContent = currentPage.charAt(0).toUpperCase() + currentPage.slice(1);
-            
+
             // Update navigation buttons
             updateNavigationButtons();
-            
+
             // Update component states
             updateComponentStates();
         }
@@ -200,12 +220,12 @@
             const btnNext = document.getElementById('btn-next');
             const btnInstall = document.getElementById('btn-install');
             const btnCancel = document.getElementById('btn-cancel');
-            
+
             // Hide all buttons first
             btnBack.style.display = 'none';
             btnNext.style.display = 'none';
             btnInstall.style.display = 'none';
-            
+
             switch (currentPage) {
                 case 'welcome':
                     btnNext.style.display = 'inline-block';
@@ -249,18 +269,18 @@
             document.querySelectorAll('.installer-content').forEach(el => {
                 el.classList.remove('active');
             });
-            
+
             // Show new page
             document.getElementById(page + '-page').classList.add('active');
-            
+
             currentPage = page;
             updateUI();
-            
+
             // Update summary if navigating to summary
             if (page === 'summary') {
                 updateSummary();
             }
-            
+
             // Notify main process
             ipcRenderer.invoke('navigate-to', page);
         }
@@ -300,14 +320,14 @@
             const installPath = document.getElementById('install-path').value;
             document.getElementById('summary-version').textContent = appConfig.version;
             document.getElementById('summary-path').textContent = installPath;
-            
+
             const selectedComponents = [];
             if (document.getElementById('component-docs').checked) selectedComponents.push('Documentation');
             if (document.getElementById('component-examples').checked) selectedComponents.push('Examples');
             if (document.getElementById('component-start-menu').checked) selectedComponents.push('Start Menu');
             if (document.getElementById('component-desktop').checked) selectedComponents.push('Desktop');
-            
-            document.getElementById('summary-components').textContent = 
+
+            document.getElementById('summary-components').textContent =
                 selectedComponents.length === 0 ? 'None selected' : selectedComponents.join(', ');
         }
 
@@ -321,15 +341,15 @@
                     startMenu: document.getElementById('component-start-menu').checked,
                     desktopShortcut: document.getElementById('component-desktop').checked
                 };
-                
+
                 await ipcRenderer.invoke('set-install-path', installPath);
                 await ipcRenderer.invoke('set-components', components);
-                
+
                 navigateTo('installation');
-                
+
                 // Start installation
                 const result = await ipcRenderer.invoke('start-installation');
-                
+
             } catch (error) {
                 showMessage('error', 'Installation Failed', `Installation failed: ${error.message}`);
             }
@@ -355,16 +375,57 @@
             window.close();
         }
 
-        function cancelInstallation() {
+        // Modal functions
+        let modalCallback = null;
+
+        function showModal(icon, title, message, confirmText = 'Confirm') {
+            return new Promise((resolve) => {
+                document.getElementById('modal-icon').textContent = icon;
+                document.getElementById('modal-title').textContent = title;
+                document.getElementById('modal-message').textContent = message;
+                document.getElementById('modal-confirm').textContent = confirmText;
+                document.getElementById('modal-overlay').classList.add('active');
+                modalCallback = resolve;
+            });
+        }
+
+        function closeModal() {
+            document.getElementById('modal-overlay').classList.remove('active');
+            if (modalCallback) {
+                modalCallback(false);
+                modalCallback = null;
+            }
+        }
+
+        function confirmModal() {
+            document.getElementById('modal-overlay').classList.remove('active');
+            if (modalCallback) {
+                modalCallback(true);
+                modalCallback = null;
+            }
+        }
+
+        async function cancelInstallation() {
             if (currentPage === 'installation') {
-                showMessage('warning', 'Cancel Installation', 
-                    'Are you sure you want to cancel the installation? The application will not be properly installed.',
-                    ['Yes', 'No']
-                ).then(result => {
-                    if (result.response === 0) {
-                        window.close();
-                    }
-                });
+                const confirmed = await showModal(
+                    '⚠️',
+                    'Cancel Installation',
+                    'Are you sure you want to cancel? The application will not be properly installed.',
+                    'Yes, Cancel'
+                );
+                if (confirmed) {
+                    window.close();
+                }
+            } else if (currentPage !== 'welcome' && currentPage !== 'success') {
+                const confirmed = await showModal(
+                    '❌',
+                    'Exit Installer',
+                    'Are you sure you want to exit the installer?',
+                    'Yes, Exit'
+                );
+                if (confirmed) {
+                    window.close();
+                }
             } else {
                 window.close();
             }
@@ -391,7 +452,7 @@
             if (success) {
                 navigateTo('success');
             } else {
-                showMessage('error', 'Installation Failed', 
+                showMessage('error', 'Installation Failed',
                     'The installation could not be completed. Please check the logs and try again.');
             }
         });
@@ -400,4 +461,5 @@
         init();
     </script>
 </body>
+
 </html>
