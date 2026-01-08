@@ -1,13 +1,14 @@
 import { Schema } from '../types';
+import { smartPluralize } from '../utils/pluralization';
 
 /**
- * Generate route handlers based on the provided schema
+ * Generate route handlers based on provided schema
  * @param schema - The JSON schema to generate routes for
  * @returns An object containing route configurations
  */
 export function generateRouteConfigs(schema: Schema): Record<string, any> {
   const resourceName = schema.title?.toLowerCase() || 'items';
-  const resourceNamePlural = `${resourceName}s`;
+  const resourceNamePlural = smartPluralize(resourceName);
   
   return {
     // GET all items
@@ -88,7 +89,7 @@ export function generateRouteConfigs(schema: Schema): Record<string, any> {
 // For backward compatibility
 export function generateRoutes(schema: Schema): string {
   const resourceName = schema.title?.toLowerCase() || 'items';
-  const resourceNamePlural = `${resourceName}s`;
+  const resourceNamePlural = smartPluralize(resourceName);
   
   return `const express = require('express');
 const router = express.Router();
@@ -188,7 +189,7 @@ module.exports = router;`;
  * @returns Array of route definitions
  */
 export function generateCRUDDSL(resourceName: string): any[] {
-  const resourceNamePlural = `${resourceName.toLowerCase()}s`;
+  const resourceNamePlural = smartPluralize(resourceName);
   
   return [
     {

@@ -1,7 +1,5 @@
 import { ServerGenerator } from '../src/generators/server';
 import { Schema } from '../src/types';
-import nodeFetch from 'node-fetch';
-const fetch = nodeFetch.default;
 
 describe('Richer Dynamic Behavior', () => {
   let generator: ServerGenerator;

@@ -1,7 +1,5 @@
 import { ServerGenerator } from '../src/generators/server';
 import { Schema } from '../src/types';
-import * as nodeFetch from 'node-fetch';
-const fetch = nodeFetch.default;
 
 const TEST_PORT = 3005;
 

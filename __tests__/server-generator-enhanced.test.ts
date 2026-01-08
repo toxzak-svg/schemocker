@@ -2,8 +2,6 @@ import { ServerGenerator, createMockServer } from '../src/generators/server';
 import { Schema } from '../src/types';
 import { PortError, ServerError } from '../src/errors';
 import * as http from 'http';
-import * as nodeFetch from 'node-fetch';
-const fetch = nodeFetch.default;
 
 const TEST_PORT = 3987;
 

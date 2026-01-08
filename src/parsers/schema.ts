@@ -1,47 +1,90 @@
 import { Schema } from '../types';
 import { SchemaParseError, SchemaRefError } from '../errors';
+import { LRUCache, createCacheKey } from '../utils/cache';
+import { DEFAULT_CACHE_SIZE, CACHE_TTL } from '../utils/constants';
+
+// Create a singleton cache for parsed schemas
+const schemaCache = new LRUCache<any>({
+  maxSize: DEFAULT_CACHE_SIZE,
+  ttl: CACHE_TTL
+});
 
 export class SchemaParser {
+  /**
+   * Clear's schema cache
+   */
+  static clearCache(): void {
+    schemaCache.clear();
+  }
+
+  /**
+   * Get cache statistics
+   */
+  static getCacheStats() {
+    return schemaCache.getStats();
+  }
+
   /**
    * Parse a JSON schema and generate mock data based on the schema definition
    * @param schema - The schema to parse
    * @param rootSchema - Root schema for $ref resolution (defaults to schema)
    * @param visited - Set of visited references to prevent circular loops
    * @param strict - Whether to enforce strict validation
+   * @param useCache - Whether to use caching (default: true)
    */
-  static parse(schema: Schema, rootSchema?: Schema, visited: Set<string> = new Set(), strict: boolean = false, propertyName?: string): any {
+  static parse(schema: Schema, rootSchema?: Schema, visited: Set<string> = new Set(), strict: boolean = false, propertyName?: string, useCache: boolean = true): any {
     if (!schema) {
       throw new SchemaParseError('Schema is required');
     }
 
+    // Check cache if enabled and no visited references (avoid caching circular refs)
+    const cacheKey = useCache && visited.size === 0 
+      ? createCacheKey(schema, { strict, propertyName })
+      : null;
+    
+    if (cacheKey && schemaCache.has(cacheKey)) {
+      return schemaCache.get(cacheKey);
+    }
+
     const root = rootSchema || schema;
+    let result: any;
 
     // Handle references
     if (schema.$ref) {
-      return this.resolveRef(schema.$ref, root, visited, strict, propertyName);
+      result = this.resolveRef(schema.$ref, root, visited, strict, propertyName);
+    } else {
+      // Handle oneOf/anyOf/allOf
+      if (schema.oneOf && schema.oneOf.length > 0) {
+        const randomIndex = Math.floor(Math.random() * schema.oneOf.length);
+        result = this.parse(schema.oneOf[randomIndex], root, visited, strict, propertyName, false);
+      } else if (schema.anyOf && schema.anyOf.length > 0) {
+        const randomIndex = Math.floor(Math.random() * schema.anyOf.length);
+        result = this.parse(schema.anyOf[randomIndex], root, visited, strict, propertyName, false);
+      } else if (schema.allOf && schema.allOf.length > 0) {
+        result = schema.allOf.reduce((acc, subSchema) => {
+          const parsed = this.parse(subSchema, root, visited, strict, propertyName, false);
+          return typeof parsed === 'object' && parsed !== null
+            ? { ...acc, ...parsed }
+            : parsed;
+        }, {});
+      } else {
+        // Handle different schema types
+        result = this.parseByType(schema, root, visited, strict, propertyName);
+      }
     }
 
-    // Handle oneOf/anyOf/allOf
-    if (schema.oneOf && schema.oneOf.length > 0) {
-      const randomIndex = Math.floor(Math.random() * schema.oneOf.length);
-      return this.parse(schema.oneOf[randomIndex], root, visited, strict, propertyName);
+    // Cache result if enabled
+    if (cacheKey && useCache) {
+      schemaCache.set(cacheKey, result);
     }
 
-    if (schema.anyOf && schema.anyOf.length > 0) {
-      const randomIndex = Math.floor(Math.random() * schema.anyOf.length);
-      return this.parse(schema.anyOf[randomIndex], root, visited, strict, propertyName);
-    }
+    return result;
+  }
 
-    if (schema.allOf && schema.allOf.length > 0) {
-      return schema.allOf.reduce((result, subSchema) => {
-        const parsed = this.parse(subSchema, root, visited, strict, propertyName);
-        return typeof parsed === 'object' && parsed !== null
-          ? { ...result, ...parsed }
-          : parsed;
-      }, {});
-    }
-
-    // Handle different schema types
+  /**
+   * Parse schema based on its type
+   */
+  private static parseByType(schema: Schema, rootSchema: Schema, visited: Set<string>, strict: boolean, propertyName?: string): any {
     switch (schema.type) {
       case 'string':
         return this.generateString(schema, strict, propertyName);
@@ -51,21 +94,21 @@ export class SchemaParser {
       case 'boolean':
         return this.generateBoolean();
       case 'array':
-        return this.generateArray(schema, root, visited, strict);
+        return this.generateArray(schema, rootSchema, visited, strict);
       case 'object':
-        return this.generateObject(schema, root, visited, strict);
+        return this.generateObject(schema, rootSchema, visited, strict);
       case 'null':
         return null;
       default:
         if (Array.isArray(schema.type)) {
           // If multiple types are allowed, pick one randomly
           const randomType = schema.type[Math.floor(Math.random() * schema.type.length)];
-          return this.parse({ ...schema, type: randomType }, root, visited, strict, propertyName);
+          return this.parseByType({ ...schema, type: randomType }, rootSchema, visited, strict, propertyName);
         }
         
         // Loose mode fallback for unknown type
         if (!strict && schema.properties) {
-          return this.generateObject(schema, root, visited, strict);
+          return this.generateObject(schema, rootSchema, visited, strict);
         }
         
         return 'UNKNOWN_TYPE';

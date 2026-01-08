@@ -284,9 +284,8 @@ describe('Routes Generator', () => {
 
       const routerCode = generateRoutes(schema);
 
-      // Note: The function lowercases the title and adds 's', so 'Category' becomes 'categorys'
-      // This is a known limitation in the simple pluralization logic
-      expect(routerCode).toContain('/api/categorys');
+      // Should now use smart pluralization: Category -> categories
+      expect(routerCode).toContain('/api/categories');
       expect(routerCode).toContain('category');
     });
 

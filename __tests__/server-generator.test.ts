@@ -1,9 +1,7 @@
 import { ServerGenerator } from '../src/generators/server';
 import { Schema } from '../src/types';
 import * as http from 'http';
-import * as nodeFetch from 'node-fetch';
 import express from 'express';
-const fetch = nodeFetch.default;
 import { AddressInfo } from 'net';
 
 const TEST_PORT = 3001;

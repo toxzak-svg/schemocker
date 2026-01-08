@@ -8,10 +8,23 @@
     ],
     "sourceMap": true,
     "rootDir": "src",
-    "strict": true
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "moduleResolution": "node",
+    "types": [
+      "node",
+      "vscode"
+    ]
   },
   "exclude": [
     "node_modules",
-    ".vscode-test"
+    "../node_modules",
+    "dist"
+  ],
+  "include": [
+    "src/**/*"
   ]
 }

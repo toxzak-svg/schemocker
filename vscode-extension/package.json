@@ -4,14 +4,31 @@
   "description": "Turn JSON schemas into live mock REST APIs in seconds",
   "version": "1.0.0",
   "publisher": "schemock",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/toxzak-svg/schemock-app.git"
+  },
   "engines": {
     "vscode": "^1.75.0"
   },
   "categories": [
-    "Other"
+    "Other",
+    "Snippets"
+  ],
+  "keywords": [
+    "mock",
+    "api",
+    "schema",
+    "rest",
+    "json",
+    "testing",
+    "development"
   ],
   "activationEvents": [
-    "onCommand:schemock.start"
+    "onStartupFinished",
+    "onCommand:schemock.start",
+    "onCommand:schemock.showPanel",
+    "onCommand:schemock.showTree"
   ],
   "main": "./dist/extension.js",
   "contributes": {
@@ -19,17 +36,78 @@
       {
         "command": "schemock.start",
         "title": "Schemock: Start Mock Server",
-        "category": "Schemock"
+        "category": "Schemock",
+        "icon": "$(play)"
       },
       {
         "command": "schemock.stop",
         "title": "Schemock: Stop Mock Server",
-        "category": "Schemock"
+        "category": "Schemock",
+        "icon": "$(stop)"
+      },
+      {
+        "command": "schemock.restart",
+        "title": "Schemock: Restart Mock Server",
+        "category": "Schemock",
+        "icon": "$(refresh)"
       },
       {
         "command": "schemock.openPlayground",
         "title": "Schemock: Open Playground",
+        "category": "Schemock",
+        "icon": "$(browser)"
+      },
+      {
+        "command": "schemock.showPanel",
+        "title": "Schemock: Show Control Panel",
+        "category": "Schemock",
+        "icon": "$(dashboard)"
+      },
+      {
+        "command": "schemock.showTree",
+        "title": "Schemock: Show Servers Tree",
         "category": "Schemock"
+      },
+      {
+        "command": "schemock.switchScenario",
+        "title": "Schemock: Switch Scenario",
+        "category": "Schemock"
+      },
+      {
+        "command": "schemock.setScenarioHappyPath",
+        "title": "Schemock: Set Scenario to Happy Path",
+        "category": "Schemock"
+      },
+      {
+        "command": "schemock.setScenarioSlow",
+        "title": "Schemock: Set Scenario to Slow",
+        "category": "Schemock"
+      },
+      {
+        "command": "schemock.setScenarioErrorHeavy",
+        "title": "Schemock: Set Scenario to Error Heavy",
+        "category": "Schemock"
+      },
+      {
+        "command": "schemock.setScenarioSadPath",
+        "title": "Schemock: Set Scenario to Sad Path",
+        "category": "Schemock"
+      },
+      {
+        "command": "schemock.startAll",
+        "title": "Schemock: Start All Servers",
+        "category": "Schemock"
+      },
+      {
+        "command": "schemock.stopAll",
+        "title": "Schemock: Stop All Servers",
+        "category": "Schemock"
+      },
+      {
+        "command": "schemock.refreshSchemas",
+        "title": "Schemock: Refresh Schema Files",
+        "category": "Schemock",
+        "icon": "$(refresh)"
       }
     ],
     "menus": {
@@ -39,7 +117,161 @@
           "command": "schemock.start",
           "group": "navigation"
         }
+      ],
+      "editor/context": [
+        {
+          "when": "resourceExtname == .json",
+          "command": "schemock.start",
+          "group": "navigation"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "schemock.start"
+        },
+        {
+          "command": "schemock.stop"
+        },
+        {
+          "command": "schemock.restart"
+        },
+        {
+          "command": "schemock.openPlayground"
+        },
+        {
+          "command": "schemock.showPanel"
+        },
+        {
+          "command": "schemock.showTree"
+        },
+        {
+          "command": "schemock.switchScenario"
+        },
+        {
+          "command": "schemock.setScenarioHappyPath"
+        },
+        {
+          "command": "schemock.setScenarioSlow"
+        },
+        {
+          "command": "schemock.setScenarioErrorHeavy"
+        },
+        {
+          "command": "schemock.setScenarioSadPath"
+        },
+        {
+          "command": "schemock.startAll"
+        },
+        {
+          "command": "schemock.stopAll"
+        },
+        {
+          "command": "schemock.refreshSchemas"
+        }
+      ],
+      "view/title": [
+        {
+          "command": "schemock.startAll",
+          "when": "view == schemockServers",
+          "group": "navigation"
+        },
+        {
+          "command": "schemock.stopAll",
+          "when": "view == schemockServers",
+          "group": "navigation"
+        },
+        {
+          "command": "schemock.refreshSchemas",
+          "when": "view == schemockServers",
+          "group": "navigation"
+        }
       ]
+    },
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "schemock",
+          "title": "Schemock",
+          "icon": "resources/icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "schemock": [
+        {
+          "id": "schemockServers",
+          "name": "Mock Servers",
+          "when": "schemock:hasWorkspace"
+        },
+        {
+          "id": "schemockSchemas",
+          "name": "Schema Files",
+          "when": "schemock:hasWorkspace"
+        }
+      ]
+    },
+    "statusBarCommands": [
+      {
+        "command": "schemock.stop",
+        "title": "Stop Schemock",
+        "when": "schemock:serverRunning"
+      }
+    ],
+    "configuration": {
+      "title": "Schemock",
+      "properties": {
+        "schemock.defaultPort": {
+          "type": "number",
+          "default": 3000,
+          "description": "Default port for mock servers"
+        },
+        "schemock.defaultScenario": {
+          "type": "string",
+          "default": "happy-path",
+          "enum": [
+            "happy-path",
+            "slow",
+            "error-heavy",
+            "sad-path"
+          ],
+          "description": "Default scenario for mock servers"
+        },
+        "schemock.autoDetectSchemas": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically detect schema files in workspace"
+        },
+        "schemock.schemaDirectories": {
+          "type": "array",
+          "default": [
+            "mocks",
+            "examples",
+            "schemas"
+          ],
+          "description": "Directories to scan for schema files"
+        },
+        "schemock.watchMode": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable watch mode by default"
+        },
+        "schemock.enableCORS": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable CORS by default"
+        },
+        "schemock.logLevel": {
+          "type": "string",
+          "default": "info",
+          "enum": [
+            "error",
+            "warn",
+            "info",
+            "debug"
+          ],
+          "description": "Log level for mock servers"
+        }
+      }
     }
   },
   "scripts": {
