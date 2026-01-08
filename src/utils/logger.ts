@@ -4,6 +4,7 @@
  */
 
 import chalk from 'chalk';
+import { LOG_LEVEL_PADDING, LOG_CONTEXT_SEPARATOR } from './constants';
 
 export type LogLevel = 'error' | 'warn' | 'info' | 'debug';
 
@@ -48,21 +49,21 @@ class Logger {
    */
   private formatMessage(level: LogLevel, message: string, context?: LogContext): string {
     const timestamp = new Date().toISOString();
-    const levelStr = level.toUpperCase().padEnd(5);
-    
+    const levelStr = level.toUpperCase().padEnd(LOG_LEVEL_PADDING);
+
     let formatted = `[${timestamp}] ${levelStr} ${message}`;
-    
+
     if (context) {
       const contextStr = Object.entries(context)
         .filter(([key]) => key !== 'module' && key !== 'operation')
         .map(([key, value]) => `${key}=${JSON.stringify(value)}`)
         .join(' ');
-      
+
       if (contextStr) {
-        formatted += ` | ${contextStr}`;
+        formatted = `${formatted}${LOG_CONTEXT_SEPARATOR}${contextStr}`;
       }
     }
-    
+
     return formatted;
   }
 
@@ -91,7 +92,7 @@ class Logger {
     if (this.shouldLog('error')) {
       const formatted = this.formatMessage('error', message, context);
       console.error(this.colorize('error', formatted));
-      
+
       // Log stack trace if error object provided
       if (context?.error instanceof Error && context.error.stack) {
         console.error(chalk.gray(context.error.stack));
@@ -136,7 +137,7 @@ class Logger {
     const message = statusCode
       ? `${method} ${path} - ${statusCode}${duration ? ` (${duration}ms)` : ''}`
       : `${method} ${path}`;
-    
+
     if (statusCode && statusCode >= 400) {
       this.warn(message, { type: 'http-request' });
     } else {
@@ -176,10 +177,10 @@ export const log = {
   warn: (message: string, context?: LogContext) => logger.warn(message, context),
   info: (message: string, context?: LogContext) => logger.info(message, context),
   debug: (message: string, context?: LogContext) => logger.debug(message, context),
-  request: (method: string, path: string, statusCode?: number, duration?: number) => 
+  request: (method: string, path: string, statusCode?: number, duration?: number) =>
     logger.logRequest(method, path, statusCode, duration),
-  performance: (operation: string, duration: number, context?: LogContext) => 
+  performance: (operation: string, duration: number, context?: LogContext) =>
     logger.logPerformance(operation, duration, context),
-  security: (message: string, context?: LogContext) => 
+  security: (message: string, context?: LogContext) =>
     logger.logSecurity(message, context)
 };

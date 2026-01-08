@@ -29,6 +29,8 @@ export const ERROR_STATUS_CODES = [400, 401, 403, 404, 500, 503] as const;
 // Logging
 export const DEFAULT_MAX_LOG_LENGTH = 1000;
 export const LOG_LEVELS = ['error', 'warn', 'info', 'debug'] as const;
+export const LOG_LEVEL_PADDING = 5;
+export const LOG_CONTEXT_SEPARATOR = ' | ';
 
 // Validation
 export const MIN_PORT = 1;
@@ -39,6 +41,7 @@ export const DEFAULT_MAX_STRING_LENGTH = 10;
 export const DEFAULT_ARRAY_MIN_ITEMS = 1;
 export const DEFAULT_ARRAY_MAX_ITEMS = 5;
 export const DEFAULT_COLLECTION_SIZE = 3;
+export const MAX_PROJECT_NAME_LENGTH = 100;
 
 // Schema parsing
 export const MAX_SCHEMA_DEPTH = 10;
@@ -131,4 +134,35 @@ export const ERROR_CODES = {
   PORT: 'E201',
   FILE: 'E300',
   VALIDATION: 'E400'
+} as const;
+
+// Error messages
+export const ERROR_MESSAGES = {
+  // File watching errors
+  CHOKIDAR_NOT_AVAILABLE: 'Chokidar not available, file watching disabled',
+  FILE_WATCHING_NOT_AVAILABLE: 'File watching is not available in this environment',
+  FILE_WATCHER_ERROR: 'File watcher error',
+
+  // Validation errors
+  PORT_REQUIRES_ELEVATED_PRIVILEGES: 'Port requires elevated privileges on Unix-like systems',
+  FILE_NOT_FOUND: 'File not found',
+  MISSING_REQUIRED_FIELD: 'Missing required field',
+
+  // Schema errors
+  SCHEMA_MUST_BE_OBJECT: 'Schema must be a valid object',
+  SCHEMA_MUST_HAVE_TYPE_OR_COMPOSITION: 'Schema must have a type or composition keyword (oneOf, anyOf, allOf, $ref)',
+  INVALID_SCHEMA_TYPE: 'Invalid schema type',
+
+  // Type validation errors
+  EXPECTED_STRING: 'Expected string',
+  EXPECTED_NUMBER: 'Expected number',
+  EXPECTED_BOOLEAN: 'Expected boolean',
+  EXPECTED_OBJECT: 'Expected object',
+  EXPECTED_ARRAY: 'Expected array',
+
+  // Constraint errors
+  STRING_TOO_SHORT: 'String too short',
+  STRING_TOO_LONG: 'String too long',
+  NUMBER_TOO_SMALL: 'Number too small',
+  NUMBER_TOO_LARGE: 'Number too large'
 } as const;

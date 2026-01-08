@@ -1,6 +1,11 @@
 import { EventEmitter } from 'events';
 import { FileError } from '../errors';
 import { log } from './logger';
+import {
+  WATCHER_STABILITY_THRESHOLD,
+  WATCHER_POLL_INTERVAL,
+  ERROR_MESSAGES
+} from './constants';
 
 // Dynamically import chokidar to avoid ESM issues in pkg
 let chokidarModule: any = null;
@@ -10,7 +15,7 @@ async function getChokidar() {
     try {
       chokidarModule = await import('chokidar');
     } catch (error) {
-      log.warn('Chokidar not available, file watching disabled', {
+      log.warn(ERROR_MESSAGES.CHOKIDAR_NOT_AVAILABLE, {
         module: 'watcher',
         error
       });
@@ -42,7 +47,7 @@ export class SchemaWatcher extends EventEmitter {
 
     const chokidar = await getChokidar();
     if (!chokidar) {
-      log.warn('File watching is not available in this environment', {
+      log.warn(ERROR_MESSAGES.FILE_WATCHING_NOT_AVAILABLE, {
         module: 'watcher'
       });
       return;
@@ -53,8 +58,8 @@ export class SchemaWatcher extends EventEmitter {
         persistent: true,
         ignoreInitial: true,
         awaitWriteFinish: {
-          stabilityThreshold: 500,
-          pollInterval: 100
+          stabilityThreshold: WATCHER_STABILITY_THRESHOLD,
+          pollInterval: WATCHER_POLL_INTERVAL
         }
       });
 
@@ -68,13 +73,13 @@ export class SchemaWatcher extends EventEmitter {
         })
         .on('error', (error: unknown) => {
           const errorMessage = error instanceof Error ? error.message : String(error);
-          log.error(`Watcher error: ${errorMessage}`, {
+          log.error(`${ERROR_MESSAGES.FILE_WATCHER_ERROR}: ${errorMessage}`, {
             module: 'watcher',
             error: error instanceof Error ? error : new Error(errorMessage),
             filePath
           });
           this.emit('error', new FileError(
-            `File watcher error: ${errorMessage}`,
+            `${ERROR_MESSAGES.FILE_WATCHER_ERROR}: ${errorMessage}`,
             filePath,
             'watch'
           ));

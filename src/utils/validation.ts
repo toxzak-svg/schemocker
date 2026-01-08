@@ -5,6 +5,17 @@
 import { resolve, normalize, isAbsolute } from 'path';
 import { existsSync } from 'fs';
 import { ValidationError, FileError } from '../errors';
+import { log } from './logger';
+import {
+  MIN_PORT,
+  MAX_PORT,
+  PRIVILEGED_PORT_THRESHOLD,
+  DEFAULT_MAX_LOG_LENGTH,
+  MAX_PROJECT_NAME_LENGTH,
+  ERROR_MESSAGES,
+  DANGEROUS_PATH_PATTERNS,
+  EXECUTABLE_EXTENSIONS
+} from './constants';
 
 /**
  * Validate and sanitize a port number
@@ -14,31 +25,35 @@ export function validatePort(port: string | number): number {
   if (typeof port !== 'string' && typeof port !== 'number') {
     throw new ValidationError('Port must be a string or number', 'port', typeof port);
   }
-  
+
   const portNum = typeof port === 'string' ? parseInt(port, 10) : port;
-  
+
   if (isNaN(portNum) || !isFinite(portNum)) {
     throw new ValidationError('Port must be a valid number', 'port', port);
   }
-  
+
   // Reject floating point numbers
   if (!Number.isInteger(portNum)) {
     throw new ValidationError('Port must be an integer', 'port', port);
   }
-  
-  if (portNum < 1 || portNum > 65535) {
+
+  if (portNum < MIN_PORT || portNum > MAX_PORT) {
     throw new ValidationError(
-      'Port must be between 1 and 65535',
+      `Port must be between ${MIN_PORT} and ${MAX_PORT}`,
       'port',
       portNum
     );
   }
-  
-  // Warn about privileged ports
-  if (portNum < 1024 && process.platform !== 'win32') {
-    console.warn(`Warning: Port ${portNum} requires elevated privileges on Unix-like systems`);
+
+  // Warn about privileged ports using proper error handling
+  if (portNum < PRIVILEGED_PORT_THRESHOLD && process.platform !== 'win32') {
+    log.warn(`${ERROR_MESSAGES.PORT_REQUIRES_ELEVATED_PRIVILEGES}: ${portNum}`, {
+      module: 'validation',
+      port: portNum,
+      platform: process.platform
+    });
   }
-  
+
   return portNum;
 }
 
@@ -49,12 +64,12 @@ export function validateFilePath(filePath: string, baseDir?: string): string {
   if (!filePath || typeof filePath !== 'string') {
     throw new ValidationError('File path must be a non-empty string', 'filePath', filePath);
   }
-  
+
   // Remove null bytes (potential injection)
   if (filePath.includes('\0')) {
     throw new ValidationError('File path contains invalid null bytes', 'filePath', filePath);
   }
-  
+
   // Reject absolute paths for security
   if (isAbsolute(filePath)) {
     throw new ValidationError(
@@ -63,21 +78,9 @@ export function validateFilePath(filePath: string, baseDir?: string): string {
       filePath
     );
   }
-  
+
   // Check for dangerous patterns BEFORE normalization
-  const dangerousPatterns = [
-    '..',           // Directory traversal
-    '~',            // Home directory
-    '$',            // Environment variables
-    '%',            // URL encoding
-    '\\\\?\\',      // Windows UNC paths
-    'file://',      // File URIs
-    '__proto__',    // Prototype pollution
-    'constructor',  // Prototype pollution
-    'prototype',    // Prototype pollution
-  ];
-  
-  for (const pattern of dangerousPatterns) {
+  for (const pattern of DANGEROUS_PATH_PATTERNS) {
     if (filePath.includes(pattern)) {
       throw new ValidationError(
         `File path contains disallowed pattern: ${pattern}`,
@@ -86,11 +89,10 @@ export function validateFilePath(filePath: string, baseDir?: string): string {
       );
     }
   }
-  
+
   // Check for executable file extensions (security risk)
-  const executableExtensions = ['.exe', '.bat', '.cmd', '.com', '.sh', '.bash'];
   const lowerPath = filePath.toLowerCase();
-  for (const ext of executableExtensions) {
+  for (const ext of EXECUTABLE_EXTENSIONS) {
     if (lowerPath.endsWith(ext) || lowerPath.includes(ext + '.')) {
       throw new ValidationError(
         `File path contains executable extension: ${ext}`,
@@ -99,10 +101,10 @@ export function validateFilePath(filePath: string, baseDir?: string): string {
       );
     }
   }
-  
+
   // Normalize and resolve to absolute path
   const absolutePath = resolve(process.cwd(), filePath);
-  
+
   // If baseDir specified, ensure path is within it
   if (baseDir) {
     const normalizedBase = normalize(resolve(baseDir));
@@ -114,7 +116,7 @@ export function validateFilePath(filePath: string, baseDir?: string): string {
       );
     }
   }
-  
+
   return absolutePath;
 }
 
@@ -123,7 +125,7 @@ export function validateFilePath(filePath: string, baseDir?: string): string {
  */
 export function validateFileExists(filePath: string): void {
   if (!existsSync(filePath)) {
-    throw new FileError(`File not found: ${filePath}`, filePath, 'read');
+    throw new FileError(`${ERROR_MESSAGES.FILE_NOT_FOUND}: ${filePath}`, filePath, 'read');
   }
 }
 
@@ -133,32 +135,32 @@ export function validateFileExists(filePath: string): void {
 export function validateSchema(schema: any, strict: boolean = false): void {
   if (!schema || typeof schema !== 'object' || Array.isArray(schema)) {
     throw new ValidationError(
-      'Schema must be a valid object',
+      ERROR_MESSAGES.SCHEMA_MUST_BE_OBJECT,
       'schema',
       schema,
       'Check if your JSON file contains a single root object { ... }.'
     );
   }
-  
+
   // Basic schema validation - require type or composition keywords
   if (!schema.type && !schema.$ref && !schema.oneOf && !schema.anyOf && !schema.allOf) {
     throw new ValidationError(
-      'Schema must have a type or composition keyword (oneOf, anyOf, allOf, $ref)',
+      ERROR_MESSAGES.SCHEMA_MUST_HAVE_TYPE_OR_COMPOSITION,
       'schema',
       schema,
       'Add "type": "object" or similar to your root schema.'
     );
   }
-  
+
   // Validate type if present
   if (schema.type) {
     const validTypes = ['string', 'number', 'integer', 'boolean', 'object', 'array', 'null'];
     const types = Array.isArray(schema.type) ? schema.type : [schema.type];
-    
+
     for (const type of types) {
       if (!validTypes.includes(type)) {
         throw new ValidationError(
-          `Invalid schema type: ${type}. Must be one of: ${validTypes.join(', ')}`,
+          `${ERROR_MESSAGES.INVALID_SCHEMA_TYPE}: ${type}. Must be one of: ${validTypes.join(', ')}`,
           'type',
           type
         );
@@ -212,45 +214,95 @@ export function validateData(data: any, schema: any): void {
   if (schema.required && Array.isArray(schema.required)) {
     for (const field of schema.required) {
       if (data[field] === undefined) {
-        throw new ValidationError(`Missing required field: ${field}`, field);
+        throw new ValidationError(
+          `${ERROR_MESSAGES.MISSING_REQUIRED_FIELD}: ${field}`,
+          field,
+          undefined,
+          `Field '${field}' is required in schema but was not provided in data.`
+        );
       }
     }
   }
 
   // Type validation
   if (schema.type === 'string' && typeof data !== 'string') {
-    throw new ValidationError(`Expected string, got ${typeof data}`, 'type');
+    throw new ValidationError(
+      `${ERROR_MESSAGES.EXPECTED_STRING}, got ${typeof data}`,
+      'type',
+      data,
+      `Field value '${JSON.stringify(data)}' does not match expected type 'string'.`
+    );
   }
   if ((schema.type === 'number' || schema.type === 'integer') && typeof data !== 'number') {
-    throw new ValidationError(`Expected number, got ${typeof data}`, 'type');
+    throw new ValidationError(
+      `${ERROR_MESSAGES.EXPECTED_NUMBER}, got ${typeof data}`,
+      'type',
+      data,
+      `Field value '${JSON.stringify(data)}' does not match expected type '${schema.type}'.`
+    );
   }
   if (schema.type === 'boolean' && typeof data !== 'boolean') {
-    throw new ValidationError(`Expected boolean, got ${typeof data}`, 'type');
+    throw new ValidationError(
+      `${ERROR_MESSAGES.EXPECTED_BOOLEAN}, got ${typeof data}`,
+      'type',
+      data,
+      `Field value '${JSON.stringify(data)}' does not match expected type 'boolean'.`
+    );
   }
   if (schema.type === 'object' && (typeof data !== 'object' || data === null || Array.isArray(data))) {
-    throw new ValidationError(`Expected object, got ${typeof data}`, 'type');
+    throw new ValidationError(
+      `${ERROR_MESSAGES.EXPECTED_OBJECT}, got ${typeof data}`,
+      'type',
+      data,
+      `Field value '${JSON.stringify(data)}' does not match expected type 'object'.`
+    );
   }
   if (schema.type === 'array' && !Array.isArray(data)) {
-    throw new ValidationError(`Expected array, got ${typeof data}`, 'type');
+    throw new ValidationError(
+      `${ERROR_MESSAGES.EXPECTED_ARRAY}, got ${typeof data}`,
+      'type',
+      data,
+      `Field value '${JSON.stringify(data)}' does not match expected type 'array'.`
+    );
   }
 
   // String constraints
   if (typeof data === 'string') {
     if (schema.minLength && data.length < schema.minLength) {
-      throw new ValidationError(`String too short (min: ${schema.minLength})`, 'minLength', data.length);
+      throw new ValidationError(
+        `${ERROR_MESSAGES.STRING_TOO_SHORT} (min: ${schema.minLength}, actual: ${data.length})`,
+        'minLength',
+        data.length,
+        `String value '${data}' must be at least ${schema.minLength} characters long.`
+      );
     }
     if (schema.maxLength && data.length > schema.maxLength) {
-      throw new ValidationError(`String too long (max: ${schema.maxLength})`, 'maxLength', data.length);
+      throw new ValidationError(
+        `${ERROR_MESSAGES.STRING_TOO_LONG} (max: ${schema.maxLength}, actual: ${data.length})`,
+        'maxLength',
+        data.length,
+        `String value '${data}' must be at most ${schema.maxLength} characters long.`
+      );
     }
   }
 
   // Number constraints
   if (typeof data === 'number') {
     if (schema.minimum !== undefined && data < schema.minimum) {
-      throw new ValidationError(`Number too small (min: ${schema.minimum})`, 'minimum', data);
+      throw new ValidationError(
+        `${ERROR_MESSAGES.NUMBER_TOO_SMALL} (min: ${schema.minimum}, actual: ${data})`,
+        'minimum',
+        data,
+        `Number value ${data} must be at least ${schema.minimum}.`
+      );
     }
     if (schema.maximum !== undefined && data > schema.maximum) {
-      throw new ValidationError(`Number too large (max: ${schema.maximum})`, 'maximum', data);
+      throw new ValidationError(
+        `${ERROR_MESSAGES.NUMBER_TOO_LARGE} (max: ${schema.maximum}, actual: ${data})`,
+        'maximum',
+        data,
+        `Number value ${data} must be at most ${schema.maximum}.`
+      );
     }
   }
 
@@ -276,7 +328,7 @@ export function validateData(data: any, schema: any): void {
  */
 export function validateLogLevel(level: string): 'error' | 'warn' | 'info' | 'debug' {
   const validLevels = ['error', 'warn', 'info', 'debug'] as const;
-  
+
   if (!validLevels.includes(level as any)) {
     throw new ValidationError(
       `Invalid log level: ${level}. Must be one of: ${validLevels.join(', ')}`,
@@ -284,18 +336,18 @@ export function validateLogLevel(level: string): 'error' | 'warn' | 'info' | 'de
       level
     );
   }
-  
+
   return level as 'error' | 'warn' | 'info' | 'debug';
 }
 
 /**
  * Sanitize string input to prevent injection
  */
-export function sanitizeString(input: string, maxLength: number = 1000): string {
+export function sanitizeString(input: string, maxLength: number = DEFAULT_MAX_LOG_LENGTH): string {
   if (typeof input !== 'string') {
     throw new ValidationError('Input must be a string', 'input', typeof input);
   }
-  
+
   // Limit length to prevent DOS
   if (input.length > maxLength) {
     throw new ValidationError(
@@ -304,13 +356,13 @@ export function sanitizeString(input: string, maxLength: number = 1000): string 
       input.length
     );
   }
-  
+
   // Remove control characters except newlines and tabs
   let sanitized = input.replace(/[\x00-\x08\x0B-\x0C\x0E-\x1F\x7F]/g, '');
-  
+
   // Remove shell injection characters
   sanitized = sanitized.replace(/[|`$;&]/g, '');
-  
+
   return sanitized;
 }
 
@@ -318,12 +370,12 @@ export function sanitizeString(input: string, maxLength: number = 1000): string 
  * Validate project name for init command
  */
 export function validateProjectName(name: string): string {
-  const sanitized = sanitizeString(name, 100);
-  
+  const sanitized = sanitizeString(name, MAX_PROJECT_NAME_LENGTH);
+
   // Check for valid npm package name (allow lowercase, digits, hyphens, underscores)
   // More permissive to match common npm naming conventions
   const validNamePattern = /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/;
-  
+
   if (!validNamePattern.test(sanitized)) {
     throw new ValidationError(
       'Project name must start with lowercase letter or digit, contain only lowercase letters, digits, and hyphens, and not end with a hyphen',
@@ -331,7 +383,7 @@ export function validateProjectName(name: string): string {
       name
     );
   }
-  
+
   // Check for reserved npm names
   const reserved = ['node_modules', 'favicon.ico'];
   if (reserved.includes(sanitized)) {
@@ -341,6 +393,6 @@ export function validateProjectName(name: string): string {
       sanitized
     );
   }
-  
+
   return sanitized;
 }
