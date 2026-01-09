@@ -1,0 +1,73 @@
+
+> schemock@1.0.1 test
+> jest --coverage __tests__/server-generator-enhanced.test.ts
+
+  console.log
+    [2026-01-09T14:37:25.729Z] DEBUG CORS enabled
+
+      at Logger.log [as debug] (src/utils/logger.ts:129:15)
+
+  console.log
+    [2026-01-09T14:37:25.757Z] DEBUG Branding enabled
+
+      at Logger.log [as debug] (src/utils/logger.ts:129:15)
+
+  console.error
+    [2026-01-09T14:37:26.850Z] ERROR Failed to start server | error={"code":"E201","details":{"port":3987},"hint":"Port 3987 is already in use. Try starting with a different port using --port <number>.","name":"PortError"} port=3987
+
+    [0m [90m 92 |[39m     [36mif[39m ([36mthis[39m[33m.[39mshouldLog([32m'error'[39m)) {
+     [90m 93 |[39m       [36mconst[39m formatted [33m=[39m [36mthis[39m[33m.[39mformatMessage([32m'error'[39m[33m,[39m message[33m,[39m context)[33m;[39m
+    [31m[1m>[22m[39m[90m 94 |[39m       console[33m.[39merror([36mthis[39m[33m.[39mcolorize([32m'error'[39m[33m,[39m formatted))[33m;[39m
+     [90m    |[39m               [31m[1m^[22m[39m
+     [90m 95 |[39m
+     [90m 96 |[39m       [90m// Log stack trace if error object provided[39m
+     [90m 97 |[39m       [36mif[39m (context[33m?[39m[33m.[39merror [36minstanceof[39m [33mError[39m [33m&&[39m context[33m.[39merror[33m.[39mstack) {[0m
+
+      at Logger.error (src/utils/logger.ts:94:15)
+      at Object.error (src/utils/logger.ts:176:60)
+      at Server.error (src/generators/server.ts:296:15)
+
+  console.error
+    PortError: Port 3987 is already in use
+        at Server.<anonymous> (C:\dev\projects\schemock\src\generators\server.ts:295:29)
+        at Server.emit (node:events:508:28)
+        at emitErrorNT (node:net:1976:8)
+        at processTicksAndRejections (node:internal/process/task_queues:89:21)
+
+    [0m [90m  96 |[39m       [90m// Log stack trace if error object provided[39m
+     [90m  97 |[39m       [36mif[39m (context[33m?[39m[33m.[39merror [36minstanceof[39m [33mError[39m [33m&&[39m context[33m.[39merror[33m.[39mstack) {
+    [31m[1m>[22m[39m[90m  98 |[39m         console[33m.[39merror(chalk[33m.[39mgray(context[33m.[39merror[33m.[39mstack))[33m;[39m
+     [90m     |[39m                 [31m[1m^[22m[39m
+     [90m  99 |[39m       }
+     [90m 100 |[39m     }
+     [90m 101 |[39m   }[0m
+
+      at Logger.error (src/utils/logger.ts:98:17)
+      at Object.error (src/utils/logger.ts:176:60)
+      at Server.error (src/generators/server.ts:296:15)
+
+--------------------|---------|----------|---------|---------|-------------------------------------------------------------------------------------------------------------------------------
+File                | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s                                                                                                             
+--------------------|---------|----------|---------|---------|-------------------------------------------------------------------------------------------------------------------------------
+All files           |   43.87 |    24.59 |    49.4 |   44.77 |                                                                                                                               
+ errors             |   58.97 |    31.81 |   55.55 |   58.97 |                                                                                                                               
+  index.ts          |   58.97 |    31.81 |   55.55 |   58.97 | 47-48,63-64,112-113,143-164                                                                                                   
+ generators         |   63.15 |    35.84 |   70.51 |   63.48 |                                                                                                                               
+  middleware.ts     |   94.28 |       50 |      90 |   94.28 | 75-82                                                                                                                         
+  playground.ts     |   21.05 |        0 |   33.33 |   22.22 | 6-31                                                                                                                          
+  response-utils.ts |    37.5 |    16.66 |     100 |    37.5 | 11-21                                                                                                                         
+  route-setup.ts    |   87.09 |      100 |   84.61 |   87.09 | 40-49,58-122                                                                                                                  
+  schema-routes.ts  |    30.2 |    18.18 |   36.84 |   30.85 | 47-249,272-313,331                                                                                                            
+  server.ts         |   76.74 |    65.47 |   81.25 |   76.47 | 126-133,168,195,264-267,279,288,303-308,333-362,370-391,431                                                                   
+ parsers            |    4.27 |        0 |       0 |    4.81 |                                                                                                                               
+  schema.ts         |    4.27 |        0 |       0 |    4.81 | 30-476                                                                                                                        
+ types              |      35 |        0 |       0 |      35 |                                                                                                                               
+  index.ts          |      35 |        0 |       0 |      35 | 111-115,130,140,152-159,182,194,206                                                                                           
+ utils              |   43.94 |    33.69 |    37.7 |   43.89 |                                                                                                                               
+  cache.ts          |    9.87 |        0 |    8.33 |      10 | 41-206,214-223,230-232                                                                                                        
+  config.ts         |   54.71 |       50 |   42.85 |   54.71 | 58-90,107,123-130,140-147,157,166,176,187,197,206,246,252,262,272,278,289,295,306,314,325,351,357,367-370,392,413-416,434-437 
+  constants.ts      |     100 |      100 |     100 |     100 |                                                                                                                               
+  logger.ts         |   78.18 |       75 |   78.26 |   77.35 | 37,78-80,84,108-109,118-119,152-163,183-185                                                                                   
+  random.ts         |   22.22 |        0 |       0 |   22.22 | 12-58,74-79,87-88,97-100,107-110,117-120                                                                                      
+  validation.ts     |   26.44 |    20.18 |    12.5 |   26.66 | 29-61,76-132,142-143,158-223,258,266,274,282,290,301,309,320-329,345-348,363-373,388-407,421-445                              
+--------------------|---------|----------|---------|---------|-------------------------------------------------------------------------------------------------------------------------------
