@@ -1,7 +1,5 @@
 import express, { Application, Request, Response, NextFunction } from 'express';
-import cors from 'cors';
 import { Server } from 'http';
-import { v4 as uuidv4 } from 'uuid';
 import {
   ServerOptions,
   RouteConfig,
@@ -11,16 +9,23 @@ import {
   JSONValue,
   Schema
 } from '../types';
-import { SchemaParser } from '../parsers/schema';
 import { PortError, ServerError, ValidationError } from '../errors';
 import { log, setLogLevel } from '../utils/logger';
 import { validateData } from '../utils/validation';
-import { getPlaygroundHTML } from './playground';
+import { setupAllMiddleware } from './middleware';
+import { setupSystemRoutes } from './route-setup';
+import { addBranding } from './response-utils';
+import {
+  determineResourceName,
+  determineBasePath,
+  createRouteHandler,
+  generateCustomRoutes,
+  generateCrudRoutes
+} from './schema-routes';
 
 export class ServerGenerator {
   private app: Application;
   private config: MockServerConfig;
-  private parser: SchemaParser;
   private server: Server | null = null;
   private state: ServerState = {};
   private version = require('../../package.json').version;
@@ -30,7 +35,6 @@ export class ServerGenerator {
   constructor(config: MockServerConfig) {
     this.config = config;
     this.app = express();
-    this.parser = new SchemaParser();
 
     // Set log level from config
     if (config.server.logLevel) {
@@ -42,61 +46,11 @@ export class ServerGenerator {
   }
 
   private setupMiddleware(): void {
-    // Enable CORS if configured
-    if (this.config.server.cors) {
-      this.app.use(cors());
-      log.debug('CORS enabled', { module: 'server' });
-    }
-
-    // JSON body parsing with size limit for security
-    this.app.use(express.json({ limit: '10mb' }));
-
-    // Add branding headers (unless disabled for paid users)
-    if (!this.config.server.hideBranding) {
-      this.app.use((req: Request, res: Response, next: NextFunction) => {
-        res.setHeader('X-Powered-By', `Schemock v${this.version}`);
-        next();
-      });
-      log.debug('Branding enabled', { module: 'server' });
-    }
-
-    // Request logging middleware
-    this.app.use((req: Request, res: Response, next: NextFunction) => {
-      const startTime = Date.now();
-
-      // Log request
-      log.debug(`Incoming request`, {
-        module: 'server',
-        method: req.method,
-        path: req.path,
-        query: req.query,
-        ip: req.ip
-      });
-
-      // Override res.json to capture status code and timing
-      const originalJson = res.json.bind(res);
-      res.json = function (body: unknown) {
-        const duration = Date.now() - startTime;
-        log.request(req.method, req.path, res.statusCode, duration);
-        return originalJson(body);
-      };
-
-      next();
-    });
-
-    // Error handling middleware
-    this.app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
-      log.error('Request error', {
-        module: 'server',
-        error: err,
-        method: req.method,
-        path: req.path
-      });
-
-      res.status(500).json({
-        error: 'Internal Server Error',
-        message: this.config.server.logLevel === 'debug' ? err.message : 'An error occurred'
-      });
+    setupAllMiddleware(this.app, {
+      cors: this.config.server.cors,
+      hideBranding: this.config.server.hideBranding,
+      logLevel: this.config.server.logLevel,
+      version: this.version
     });
   }
 
@@ -106,126 +60,8 @@ export class ServerGenerator {
       this.setupRoute(routeConfig);
     });
 
-    // API Index endpoint (Playground)
-    this.app.get('/', (req: Request, res: Response) => {
-      const html = getPlaygroundHTML(this.config.routes);
-      res.send(html);
-    });
-
-    // Health check endpoint
-    this.app.get('/health', (req: Request, res: Response) => {
-      res.json({
-        status: 'healthy',
-        timestamp: new Date().toISOString(),
-        uptime: process.uptime()
-      });
-    });
-
-    // Share schema endpoint
-    this.app.get('/api/share', (req: Request, res: Response) => {
-      const shareData = {
-        routes: this.config.routes,
-        server: {
-          port: this.config.server.port,
-          cors: this.config.server.cors
-        },
-        version: this.version,
-        createdAt: new Date().toISOString()
-      };
-      res.json(shareData);
-    });
-
-    // Schema gallery endpoint (static list of public schemas)
-    this.app.get('/api/gallery', (req: Request, res: Response) => {
-      const publicSchemas = [
-        {
-          id: 'ecommerce-product',
-          title: 'E-commerce Product API',
-          description: 'Complete product management API with categories, pricing, and inventory',
-          url: 'https://github.com/toxzak-svg/schemock-app',
-          schema: {
-            type: 'object',
-            title: 'Product',
-            properties: {
-              id: { type: 'string', format: 'uuid' },
-              name: { type: 'string' },
-              price: { type: 'number', minimum: 0 },
-              category: { type: 'string', enum: ['electronics', 'clothing', 'books'] },
-              inStock: { type: 'boolean' }
-            },
-            required: ['id', 'name', 'price', 'category']
-          }
-        },
-        {
-          id: 'social-media-post',
-          title: 'Social Media Post Schema',
-          description: 'Blog post and social media content API with likes and comments',
-          url: 'https://github.com/toxzak-svg/schemock-app',
-          schema: {
-            type: 'object',
-            title: 'Post',
-            properties: {
-              id: { type: 'string', format: 'uuid' },
-              title: { type: 'string' },
-              content: { type: 'string' },
-              author: { type: 'string' },
-              likes: { type: 'number' },
-              comments: { type: 'array', items: { type: 'string' } }
-            },
-            required: ['id', 'title', 'content', 'author']
-          }
-        },
-        {
-          id: 'user-profile',
-          title: 'User Profile API',
-          description: 'User authentication and profile management',
-          url: 'https://github.com/toxzak-svg/schemock-app',
-          schema: {
-            type: 'object',
-            title: 'User',
-            properties: {
-              id: { type: 'string', format: 'uuid' },
-              email: { type: 'string', format: 'email' },
-              username: { type: 'string' },
-              profile: {
-                type: 'object',
-                properties: {
-                  firstName: { type: 'string' },
-                  lastName: { type: 'string' },
-                  avatar: { type: 'string', format: 'uri' }
-                }
-              }
-            },
-            required: ['id', 'email', 'username']
-          }
-        }
-      ];
-
-      res.json({
-        schemas: publicSchemas,
-        total: publicSchemas.length,
-        message: 'Made with Schemock'
-      });
-    });
-
-    // Favicon handler (prevent 404 warnings)
-    this.app.get('/favicon.ico', (req: Request, res: Response) => {
-      res.status(204).end();
-    });
-
-    // 404 handler
-    this.app.use((req: Request, res: Response) => {
-      log.warn('Route not found', {
-        module: 'server',
-        method: req.method,
-        path: req.path
-      });
-
-      res.status(404).json({
-        error: 'Not Found',
-        message: `No route found for ${req.method} ${req.path}`
-      });
-    });
+    // Setup system routes (playground, health, share, gallery, etc.)
+    setupSystemRoutes(this.app, this.config, this.version);
   }
 
   private setupRoute(routeConfig: RouteConfig): void {
@@ -312,11 +148,11 @@ export class ServerGenerator {
           const result = await Promise.resolve(response(routeReq, this.state));
 
           // Add branding metadata to response (unless disabled)
-          const brandedResult = this.addBranding(result);
+          const brandedResult = addBranding(result, this.config.server.hideBranding ?? false, this.version);
           res.status(statusCode).json(brandedResult);
         } else if (typeof response === 'object' && response !== null) {
           // If response is an object, add branding metadata
-          const brandedResponse = this.addBranding(response);
+          const brandedResponse = addBranding(response, this.config.server.hideBranding ?? false, this.version);
           res.status(statusCode).json(brandedResponse);
         } else {
           // For other types, send as is
@@ -573,214 +409,19 @@ export class ServerGenerator {
     return this.config;
   }
 
-  /**
-   * Add branding metadata to response (unless disabled for paid users)
-   */
-  private addBranding(data: unknown): unknown {
-    // Skip branding if explicitly disabled
-    if (this.config.server.hideBranding) {
-      return data;
-    }
-
-    // Don't add metadata to non-objects or arrays
-    if (typeof data !== 'object' || data === null || Array.isArray(data)) {
-      return data;
-    }
-
-    // Check if _meta already exists in response
-    if ('_meta' in data) {
-      return data;
-    }
-
-    // Add branding metadata
-    return {
-      ...data,
-      _meta: {
-        generated_by: 'Schemock',
-        version: this.version,
-        url: 'https://github.com/toxzak-svg/schemock-app'
-      }
-    };
-  }
-
   public static generateFromSchema(schema: Schema, options: Omit<ServerOptions, 'port'> & { port?: number } = { port: 3000 }): ServerGenerator {
     const port = options.port !== undefined ? options.port : 3000;
-    const routes: Record<string, RouteConfig> = {};
 
-    const resourceName = options.resourceName || (schema.title ? schema.title.toLowerCase() + (schema.title.toLowerCase().endsWith('s') ? '' : 's') : 'data');
-    const basePath = options.basePath || `/api/${resourceName}`;
+    const resourceName = determineResourceName(schema, options);
+    const basePath = determineBasePath(resourceName, options);
 
     const createHandler = (method: string, routePath: string, routeDef: { response?: JSONValue | Schema }, wrap: boolean = true) => {
-      return (req: RouteRequest, state: ServerState): JSONValue => {
-        const parts = routePath.split('/').filter(p => p && p !== 'api');
-        const resource = parts[0] || 'data';
-
-        if (!state[resource]) {
-          state[resource] = [];
-        }
-
-        const isSchema = routeDef.response && typeof routeDef.response === 'object' &&
-          ('type' in routeDef.response || '$ref' in routeDef.response || 'oneOf' in routeDef.response ||
-            'anyOf' in routeDef.response || 'allOf' in routeDef.response);
-
-        const responseSchema: Schema = (isSchema && routeDef.response) ? routeDef.response as Schema : schema;
-
-        if (method === 'get') {
-          if (routePath.endsWith('/:id')) {
-            const item = state[resource].find((i: JSONValue) =>
-              typeof i === 'object' && i !== null && 'id' in i && i.id === req.params?.id
-            );
-            if (item) {
-              return wrap ? {
-                success: true,
-                message: 'Mock data retrieved',
-                timestamp: new Date().toISOString(),
-                data: item
-              } : item;
-            }
-
-            // Fallback: generate, tie to ID, and store in state for consistency
-            let data = isSchema ? SchemaParser.parse(responseSchema, schema, new Set(), options.strict, resource) : (routeDef.response as JSONValue);
-            if (data && typeof data === 'object' && !Array.isArray(data) && req.params?.id) {
-              // Clone to avoid mutating the original routeDef.response
-              const dataObj = data as Record<string, JSONValue>;
-              dataObj.id = req.params.id;
-              state[resource].push(dataObj);
-              data = dataObj;
-            }
-            return wrap ? {
-              success: true,
-              message: 'Mock data generated',
-              timestamp: new Date().toISOString(),
-              data
-            } : data;
-          } else {
-            // Collection GET logic - only if it's a default route (wrap=true) or explicitly a schema array
-            if (wrap || (isSchema && responseSchema.type === 'array')) {
-              // Return list from state
-              if (state[resource].length === 0) {
-                // Populate with some initial data
-                const generated = isSchema ? SchemaParser.parse(responseSchema, schema, new Set(), options.strict, resource) : (routeDef.response as JSONValue);
-                if (Array.isArray(generated)) {
-                  state[resource] = generated;
-                } else if (isSchema) {
-                  for (let i = 0; i < 3; i++) {
-                    const item = SchemaParser.parse(responseSchema, schema, new Set(), options.strict, resource);
-                    if (item && typeof item === 'object' && !Array.isArray(item)) {
-                      const itemObj = item as Record<string, JSONValue>;
-                      if (!itemObj.id) {
-                        itemObj.id = uuidv4();
-                      }
-                    }
-                    state[resource].push(item);
-                  }
-                } else {
-                  // Static non-array response, don't treat as collection
-                  return routeDef.response as JSONValue;
-                }
-              }
-              return wrap ? {
-                success: true,
-                message: 'Mock data retrieved',
-                timestamp: new Date().toISOString(),
-                data: state[resource],
-                meta: { total: state[resource].length }
-              } : state[resource];
-            } else {
-              // Static or non-wrapped GET
-              if (isSchema) return SchemaParser.parse(routeDef.response as Schema, schema, new Set(), options.strict, resource);
-              return routeDef.response as JSONValue;
-            }
-          }
-        }
-
-        if (method === 'post') {
-          const bodyObj = typeof req.body === 'object' && req.body !== null ? req.body as Record<string, unknown> : {};
-          const newItem: Record<string, JSONValue> = {
-            id: (bodyObj.id as string) || uuidv4(),
-            ...bodyObj as Record<string, JSONValue>,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString()
-          };
-          state[resource].push(newItem);
-          return wrap ? { success: true, data: newItem, message: 'Created successfully' } : newItem;
-        }
-
-        if (method === 'put' && routePath.endsWith('/:id')) {
-          const index = state[resource].findIndex((i: JSONValue) =>
-            typeof i === 'object' && i !== null && 'id' in i && i.id === req.params?.id
-          );
-          const bodyObj = typeof req.body === 'object' && req.body !== null ? req.body as Record<string, unknown> : {};
-          const existingItem = index >= 0 && typeof state[resource][index] === 'object' && state[resource][index] !== null
-            ? state[resource][index] as Record<string, unknown>
-            : {};
-          const updatedItem: Record<string, JSONValue> = {
-            ...(existingItem as Record<string, JSONValue>),
-            ...bodyObj as Record<string, JSONValue>,
-            id: req.params?.id || '',
-            updatedAt: new Date().toISOString()
-          };
-          if (index >= 0) {
-            state[resource][index] = updatedItem;
-          } else {
-            state[resource].push(updatedItem);
-          }
-          return wrap ? { success: true, data: updatedItem } : updatedItem;
-        }
-
-        if (method === 'delete' && routePath.endsWith('/:id')) {
-          const initialLength = state[resource].length;
-          state[resource] = state[resource].filter((i: JSONValue) =>
-            typeof i === 'object' && i !== null && 'id' in i && i.id !== req.params?.id
-          );
-          return wrap ? { success: true, message: 'Deleted successfully' } : { message: 'Deleted successfully' };
-        }
-
-        // Default behavior if not matched
-        if (isSchema) return SchemaParser.parse(routeDef.response as Schema, schema, new Set(), options.strict, resource);
-        return (routeDef.response as JSONValue) || SchemaParser.parse(schema, undefined, new Set(), options.strict, resource);
-      };
+      return createRouteHandler(method, routePath, routeDef, schema, options, wrap);
     };
 
-    if (schema['x-schemock-routes'] && Array.isArray(schema['x-schemock-routes'])) {
-      schema['x-schemock-routes'].forEach((routeDef: { path: string; method: string; response?: JSONValue | Schema; statusCode?: number; delay?: number; headers?: Record<string, string> }) => {
-        const method = routeDef.method.toLowerCase();
-        const path = routeDef.path;
-        const key = `${method}:${path}`;
-
-        routes[key] = {
-          path,
-          method: method as 'get' | 'post' | 'put' | 'delete' | 'patch',
-          statusCode: routeDef.statusCode || (method === 'post' ? 201 : 200),
-          delay: routeDef.delay || 0,
-          headers: routeDef.headers || {},
-          response: createHandler(method, path, routeDef, false), // Don't wrap x-schemock-routes
-          schema: routeDef.response && typeof routeDef.response === 'object' && 'type' in routeDef.response
-            ? routeDef.response as Schema
-            : undefined
-        };
-      });
-    } else {
-      // Default CRUD routes based on schema title
-      const crudPaths = [
-        { method: 'get', path: basePath },
-        { method: 'get', path: `${basePath}/:id` },
-        { method: 'post', path: basePath },
-        { method: 'put', path: `${basePath}/:id` },
-        { method: 'delete', path: `${basePath}/:id` }
-      ];
-
-      crudPaths.forEach(({ method, path }) => {
-        const key = `${method}:${path}`;
-        routes[key] = {
-          path,
-          method: method as 'get' | 'post' | 'put' | 'delete' | 'patch',
-          statusCode: method === 'post' ? 201 : (method === 'delete' ? 204 : 200),
-          response: createHandler(method, path, { response: schema }),
-          schema: schema
-        };
-      });
-    }
+    const routes = schema['x-schemock-routes'] && Array.isArray(schema['x-schemock-routes'])
+      ? generateCustomRoutes(schema, createHandler)
+      : generateCrudRoutes(basePath, schema, createHandler);
 
     const config: MockServerConfig = {
       server: {
