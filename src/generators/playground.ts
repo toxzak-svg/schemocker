@@ -307,7 +307,7 @@ export function getPlaygroundHTML(routes: Record<string, RouteConfig>): string {
     </head>
     <body>
       <h1>🚀 Schemock Playground</h1>
-      <p class="subtitle">Explore and test your generated mock APIs</p>
+      <p class="subtitle">Explore and test your generated mock APIs.</p>
       
       <div class="header-actions">
         <button class="btn btn-share" onclick="shareSchema()">
