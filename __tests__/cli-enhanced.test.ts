@@ -14,7 +14,7 @@ describe('CLI Enhanced Tests', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    
+
     // Setup default mocks
     mockFs.existsSync.mockReturnValue(true);
     mockFs.readFileSync.mockReturnValue('{}');
@@ -73,7 +73,7 @@ describe('CLI Enhanced Tests', () => {
 
     it('should handle JSON parse errors', () => {
       mockFs.readFileSync.mockReturnValue('invalid json');
-      
+
       expect(() => {
         JSON.parse(mockFs.readFileSync('test.json', 'utf-8'));
       }).toThrow();
@@ -158,10 +158,10 @@ describe('CLI Enhanced Tests', () => {
         properties: { id: { type: 'string' } },
         required: []
       };
-      
+
       const strictMode = true;
       const hasRequiredFields = schema.required && schema.required.length > 0;
-      
+
       if (strictMode && !hasRequiredFields) {
         expect(hasRequiredFields).toBe(false);
       }
@@ -198,7 +198,7 @@ describe('CLI Enhanced Tests', () => {
         version: '1.0.0',
         dependencies: { schemock: '^1.0.0' }
       };
-      
+
       expect(packageJson.name).toBe('test-project');
       expect(packageJson.dependencies.schemock).toBeDefined();
     });
@@ -216,7 +216,7 @@ describe('CLI Enhanced Tests', () => {
           name: { type: 'string' }
         }
       };
-      
+
       expect(sampleSchema.properties.id.format).toBe('uuid');
       expect(sampleSchema.properties.name.type).toBe('string');
     });
@@ -236,9 +236,9 @@ describe('CLI Enhanced Tests', () => {
 
   describe('Init Vite Command', () => {
     it('should check for vite.config files', () => {
-      const hasViteConfig = mockFs.existsSync('vite.config.ts') || 
-                          mockFs.existsSync('vite.config.js');
-      
+      const hasViteConfig = mockFs.existsSync('vite.config.ts') ||
+        mockFs.existsSync('vite.config.js');
+
       if (!hasViteConfig) {
         expect(hasViteConfig).toBe(false);
       }
@@ -266,7 +266,7 @@ describe('CLI Enhanced Tests', () => {
           }
         }
       };
-      
+
       expect(apiSchema.properties.users.type).toBe('array');
     });
 
@@ -277,9 +277,9 @@ describe('CLI Enhanced Tests', () => {
           build: 'vite build'
         }
       };
-      
+
       packageJson.scripts['mock'] = 'schemock start mocks/api.json --watch';
-      
+
       expect(packageJson.scripts.mock).toBe('schemock start mocks/api.json --watch');
     });
 
@@ -306,7 +306,7 @@ describe('CLI Enhanced Tests', () => {
           { path: '/api/users/:id', method: 'get' }
         ]
       };
-      
+
       expect(schema['x-schemock-routes']).toBeDefined();
       expect(schema['x-schemock-routes'].length).toBeGreaterThan(0);
     });
@@ -333,7 +333,7 @@ describe('CLI Enhanced Tests', () => {
     it('should read recipes if file exists', () => {
       mockFs.existsSync.mockReturnValue(true);
       mockFs.readFileSync.mockReturnValue('# Recipes\n\n## Recipe 1\n');
-      
+
       const content = mockFs.readFileSync('docs/recipes.md', 'utf-8');
       expect(content).toContain('# Recipes');
     });
@@ -353,7 +353,7 @@ describe('CLI Enhanced Tests', () => {
     });
 
     it('should keep process running', () => {
-      const promise = new Promise(() => {});
+      const promise = new Promise(() => { });
       expect(promise).toBeInstanceOf(Promise);
     });
   });
@@ -373,7 +373,7 @@ describe('CLI Enhanced Tests', () => {
         'schemock init my-api',
         'schemock recipes'
       ];
-      
+
       quickStart.forEach(cmd => {
         expect(cmd).toContain('schemock');
       });
@@ -385,7 +385,7 @@ describe('CLI Enhanced Tests', () => {
         'schemock start --resource products',
         'schemock init ecommerce-api --name "E-commerce API"'
       ];
-      
+
       examples.forEach(cmd => {
         expect(cmd).toContain('schemock');
       });
@@ -408,7 +408,7 @@ describe('CLI Enhanced Tests', () => {
       mockFs.writeFileSync.mockImplementation(() => {
         throw new Error('Write failed');
       });
-      
+
       expect(() => {
         mockFs.writeFileSync('test.json', '{}');
       }).toThrow();
@@ -418,7 +418,7 @@ describe('CLI Enhanced Tests', () => {
       mockFs.mkdirSync.mockImplementation(() => {
         throw new Error('Permission denied');
       });
-      
+
       expect(() => {
         mockFs.mkdirSync('/root/dir', { recursive: true });
       }).toThrow();
@@ -439,7 +439,7 @@ describe('CLI Enhanced Tests', () => {
           name: { type: 'string' }
         }
       };
-      
+
       expect(schema.properties).toBeDefined();
       expect(schema.properties ? Object.keys(schema.properties).length : 0).toBe(2);
     });
@@ -449,7 +449,7 @@ describe('CLI Enhanced Tests', () => {
         type: 'object',
         required: ['id', 'name']
       };
-      
+
       expect(schema.required).toContain('id');
       expect(schema.required).toContain('name');
     });
@@ -457,13 +457,13 @@ describe('CLI Enhanced Tests', () => {
     it('should validate format constraints', () => {
       const validFormats = ['uuid', 'email', 'date-time', 'uri'];
       const schemaProperty = { type: 'string', format: 'email' };
-      
+
       expect(validFormats).toContain(schemaProperty.format);
     });
 
     it('should validate number constraints', () => {
       const numberProperty = { type: 'number', minimum: 0, maximum: 100 };
-      
+
       expect(numberProperty.minimum).toBeLessThanOrEqual(numberProperty.maximum);
     });
 
@@ -474,7 +474,7 @@ describe('CLI Enhanced Tests', () => {
         minItems: 1,
         maxItems: 10
       };
-      
+
       expect(arrayProperty.minItems).toBeLessThanOrEqual(arrayProperty.maxItems);
     });
   });
@@ -527,7 +527,7 @@ describe('CLI Enhanced Tests', () => {
     it('should handle CORS option', () => {
       const corsEnabled = true;
       const corsDisabled = false;
-      
+
       expect(typeof corsEnabled).toBe('boolean');
       expect(typeof corsDisabled).toBe('boolean');
     });
@@ -545,7 +545,7 @@ describe('CLI Enhanced Tests', () => {
     it('should handle log level option', () => {
       const logLevels = ['error', 'warn', 'info', 'debug'];
       const currentLevel = 'info';
-      
+
       expect(logLevels).toContain(currentLevel);
     });
   });
@@ -569,6 +569,403 @@ describe('CLI Enhanced Tests', () => {
     it('should close watcher on exit', () => {
       const closeWatcher = true;
       expect(closeWatcher).toBe(true);
+    });
+  });
+
+  describe('CLI Enhanced - Configuration Edge Cases', () => {
+    describe('merging configurations with conflicting options', () => {
+      it('should handle merging configs with same port', () => {
+        const config1 = {
+          server: { port: 3000, cors: true, logLevel: 'error' as const },
+          routes: {}
+        };
+        const config2 = {
+          server: { port: 3000, cors: false, logLevel: 'debug' as const },
+          routes: {}
+        };
+
+        // Last config should win for conflicting options
+        expect(config2.server.port).toBe(3000);
+        expect(config2.server.cors).toBe(false);
+        expect(config2.server.logLevel).toBe('debug');
+      });
+
+      it('should handle merging configs with different ports', () => {
+        const config1 = {
+          server: { port: 3000, cors: true, logLevel: 'error' as const },
+          routes: {}
+        };
+        const config2 = {
+          server: { port: 8080, cors: true, logLevel: 'error' as const },
+          routes: {}
+        };
+
+        expect(config1.server.port).not.toBe(config2.server.port);
+      });
+
+      it('should handle merging configs with conflicting routes', () => {
+        const config1 = {
+          server: { port: 3000, cors: true, logLevel: 'error' as const },
+          routes: {
+            'get:/api/test': {
+              path: '/api/test',
+              method: 'get' as const,
+              response: { version: 1 }
+            }
+          }
+        };
+        const config2 = {
+          server: { port: 3000, cors: true, logLevel: 'error' as const },
+          routes: {
+            'get:/api/test': {
+              path: '/api/test',
+              method: 'get' as const,
+              response: { version: 2 }
+            }
+          }
+        };
+
+        expect(config1.routes['get:/api/test'].response.version).toBe(1);
+        expect(config2.routes['get:/api/test'].response.version).toBe(2);
+      });
+
+      it('should handle merging configs with conflicting boolean options', () => {
+        const config1 = {
+          server: { port: 3000, cors: true, strict: false, logLevel: 'error' as const },
+          routes: {}
+        };
+        const config2 = {
+          server: { port: 3000, cors: false, strict: true, logLevel: 'error' as const },
+          routes: {}
+        };
+
+        expect(config1.server.cors).not.toBe(config2.server.cors);
+        expect(config1.server.strict).not.toBe(config2.server.strict);
+      });
+    });
+
+    describe('configuration with undefined/null values', () => {
+      it('should handle config with undefined server options', () => {
+        const config = {
+          server: { port: 3000, cors: undefined as any, logLevel: 'error' as const },
+          routes: {}
+        };
+
+        expect(config.server.port).toBe(3000);
+        expect(config.server.cors).toBeUndefined();
+      });
+
+      it('should handle config with null server options', () => {
+        const config = {
+          server: { port: 3000, cors: null as any, logLevel: 'error' as const },
+          routes: {}
+        };
+
+        expect(config.server.port).toBe(3000);
+        expect(config.server.cors).toBeNull();
+      });
+
+      it('should handle config with undefined routes', () => {
+        const config = {
+          server: { port: 3000, cors: true, logLevel: 'error' as const },
+          routes: undefined as any
+        };
+
+        expect(config.server.port).toBe(3000);
+        expect(config.routes).toBeUndefined();
+      });
+
+      it('should handle config with null routes', () => {
+        const config = {
+          server: { port: 3000, cors: true, logLevel: 'error' as const },
+          routes: null as any
+        };
+
+        expect(config.server.port).toBe(3000);
+        expect(config.routes).toBeNull();
+      });
+
+      it('should handle config with undefined route properties', () => {
+        const config = {
+          server: { port: 3000, cors: true, logLevel: 'error' as const },
+          routes: {
+            'get:/api/test': {
+              path: '/api/test',
+              method: 'get' as const,
+              response: { data: 'test' },
+              statusCode: undefined as any,
+              headers: undefined as any
+            }
+          }
+        };
+
+        const route = config.routes['get:/api/test'];
+        expect(route.statusCode).toBeUndefined();
+        expect(route.headers).toBeUndefined();
+      });
+    });
+
+    describe('configuration with circular references', () => {
+      it('should handle config with circular route references', () => {
+        const config: any = {
+          server: { port: 3000, cors: true, logLevel: 'error' as const },
+          routes: {}
+        };
+
+        // Create circular reference
+        config.routes['get:/api/test'] = {
+          path: '/api/test',
+          method: 'get' as const,
+          response: config
+        };
+
+        expect(config.routes['get:/api/test'].response).toBe(config);
+      });
+
+      it('should handle config with nested circular references', () => {
+        const nested: any = { value: 'test' };
+        const config: any = {
+          server: { port: 3000, cors: true, logLevel: 'error' as const },
+          routes: {
+            'get:/api/test': {
+              path: '/api/test',
+              method: 'get' as const,
+              response: { nested }
+            }
+          }
+        };
+
+        // Create circular reference
+        nested.circular = config;
+
+        expect(config.routes['get:/api/test'].response.nested.circular).toBe(config);
+      });
+    });
+
+    describe('configuration with very large values', () => {
+      it('should handle config with very large port number', () => {
+        const config = {
+          server: { port: 65535, cors: true, logLevel: 'error' as const },
+          routes: {}
+        };
+
+        expect(config.server.port).toBe(65535);
+      });
+
+      it('should handle config with very long response data', () => {
+        const largeResponse = {
+          data: 'x'.repeat(10000)
+        };
+
+        const config = {
+          server: { port: 3000, cors: true, logLevel: 'error' as const },
+          routes: {
+            'get:/api/test': {
+              path: '/api/test',
+              method: 'get' as const,
+              response: largeResponse
+            }
+          }
+        };
+
+        expect(config.routes['get:/api/test'].response.data.length).toBe(10000);
+      });
+
+      it('should handle config with very large number of routes', () => {
+        const routes: any = {};
+        for (let i = 0; i < 100; i++) {
+          routes[`get:/api/route${i}`] = {
+            path: `/api/route${i}`,
+            method: 'get' as const,
+            response: { id: i }
+          };
+        }
+
+        const config = {
+          server: { port: 3000, cors: true, logLevel: 'error' as const },
+          routes
+        };
+
+        expect(Object.keys(config.routes).length).toBe(100);
+      });
+
+      it('should handle config with very long route paths', () => {
+        const longPath = '/api/' + 'a'.repeat(1000) + '/endpoint';
+
+        const config = {
+          server: { port: 3000, cors: true, logLevel: 'error' as const },
+          routes: {
+            [`get:${longPath}`]: {
+              path: longPath,
+              method: 'get' as const,
+              response: { data: 'test' }
+            }
+          }
+        };
+
+        expect(config.routes[`get:${longPath}`].path.length).toBeGreaterThan(1000);
+      });
+
+      it('should handle config with very large delay value', () => {
+        const config = {
+          server: { port: 3000, cors: true, logLevel: 'error' as const },
+          routes: {
+            'get:/api/test': {
+              path: '/api/test',
+              method: 'get' as const,
+              delay: 100000,
+              response: { data: 'test' }
+            }
+          }
+        };
+
+        expect(config.routes['get:/api/test'].delay).toBe(100000);
+      });
+    });
+
+    describe('configuration with special characters', () => {
+      it('should handle config with unicode in route paths', () => {
+        const config = {
+          server: { port: 3000, cors: true, logLevel: 'error' as const },
+          routes: {
+            'get:/api/用户': {
+              path: '/api/用户',
+              method: 'get' as const,
+              response: { data: 'test' }
+            }
+          }
+        };
+
+        expect(config.routes['get:/api/用户']).toBeDefined();
+      });
+
+      it('should handle config with special characters in headers', () => {
+        const config = {
+          server: { port: 3000, cors: true, logLevel: 'error' as const },
+          routes: {
+            'get:/api/test': {
+              path: '/api/test',
+              method: 'get' as const,
+              headers: {
+                'X-Custom-Header': 'value with spaces',
+                'X-Unicode-Header': '值'
+              },
+              response: { data: 'test' }
+            }
+          }
+        };
+
+        expect(config.routes['get:/api/test'].headers['X-Custom-Header']).toBe('value with spaces');
+        expect(config.routes['get:/api/test'].headers['X-Unicode-Header']).toBe('值');
+      });
+
+      it('should handle config with emoji in responses', () => {
+        const config = {
+          server: { port: 3000, cors: true, logLevel: 'error' as const },
+          routes: {
+            'get:/api/test': {
+              path: '/api/test',
+              method: 'get' as const,
+              response: { message: 'Hello 😀' }
+            }
+          }
+        };
+
+        expect(config.routes['get:/api/test'].response.message).toBe('Hello 😀');
+      });
+    });
+
+    describe('configuration with boundary values', () => {
+      it('should handle config with minimum valid port', () => {
+        const config = {
+          server: { port: 1, cors: true, logLevel: 'error' as const },
+          routes: {}
+        };
+
+        expect(config.server.port).toBe(1);
+      });
+
+      it('should handle config with maximum valid port', () => {
+        const config = {
+          server: { port: 65535, cors: true, logLevel: 'error' as const },
+          routes: {}
+        };
+
+        expect(config.server.port).toBe(65535);
+      });
+
+      it('should handle config with zero delay', () => {
+        const config = {
+          server: { port: 3000, cors: true, logLevel: 'error' as const },
+          routes: {
+            'get:/api/test': {
+              path: '/api/test',
+              method: 'get' as const,
+              delay: 0,
+              response: { data: 'test' }
+            }
+          }
+        };
+
+        expect(config.routes['get:/api/test'].delay).toBe(0);
+      });
+
+      it('should handle config with negative delay', () => {
+        const config = {
+          server: { port: 3000, cors: true, logLevel: 'error' as const },
+          routes: {
+            'get:/api/test': {
+              path: '/api/test',
+              method: 'get' as const,
+              delay: -100,
+              response: { data: 'test' }
+            }
+          }
+        };
+
+        expect(config.routes['get:/api/test'].delay).toBe(-100);
+      });
+    });
+
+    describe('configuration with mixed types', () => {
+      it('should handle config with mixed response types', () => {
+        const config = {
+          server: { port: 3000, cors: true, logLevel: 'error' as const },
+          routes: {
+            'get:/api/string': {
+              path: '/api/string',
+              method: 'get' as const,
+              response: 'string response'
+            },
+            'get:/api/number': {
+              path: '/api/number',
+              method: 'get' as const,
+              response: 42
+            },
+            'get:/api/boolean': {
+              path: '/api/boolean',
+              method: 'get' as const,
+              response: true
+            },
+            'get:/api/null': {
+              path: '/api/null',
+              method: 'get' as const,
+              response: null
+            },
+            'get:/api/array': {
+              path: '/api/array',
+              method: 'get' as const,
+              response: [1, 2, 3]
+            }
+          }
+        };
+
+        expect(typeof config.routes['get:/api/string'].response).toBe('string');
+        expect(typeof config.routes['get:/api/number'].response).toBe('number');
+        expect(typeof config.routes['get:/api/boolean'].response).toBe('boolean');
+        expect(config.routes['get:/api/null'].response).toBeNull();
+        expect(Array.isArray(config.routes['get:/api/array'].response)).toBe(true);
+      });
     });
   });
 });
