@@ -153,7 +153,7 @@ describe('Routes Generator', () => {
 
       const routes = generateRouteConfigs(schema);
       const putRoute = routes['put:/api/users/:id'];
-      const mockReq = { 
+      const mockReq = {
         params: { id: '123' },
         body: { name: 'Updated User' }
       };
@@ -392,6 +392,439 @@ describe('Routes Generator', () => {
       const dsl = generateCRUDDSL('UserProfile');
 
       expect(dsl[0].path).toBe('/api/userprofiles');
+    });
+  });
+
+  describe('Routes Generator - Edge Cases', () => {
+    describe('request with empty body', () => {
+      it('should handle POST request with empty body', () => {
+        const schema: Schema = {
+          type: 'object',
+          title: 'User'
+        };
+
+        const routes = generateRouteConfigs(schema);
+        const postRoute = routes['post:/api/users'];
+        const mockReq = { body: {} };
+
+        const response = postRoute.response(mockReq);
+
+        expect(response).toHaveProperty('success', true);
+        expect(response).toHaveProperty('data');
+        expect(response.data).toHaveProperty('id');
+      });
+
+      it('should handle PUT request with empty body', () => {
+        const schema: Schema = {
+          type: 'object',
+          title: 'User'
+        };
+
+        const routes = generateRouteConfigs(schema);
+        const putRoute = routes['put:/api/users/:id'];
+        const mockReq = {
+          params: { id: '123' },
+          body: {}
+        };
+
+        const response = putRoute.response(mockReq);
+
+        expect(response).toHaveProperty('success', true);
+        expect(response.data).toHaveProperty('id', '123');
+      });
+    });
+
+    describe('request with malformed JSON', () => {
+      it('should handle request with null body', () => {
+        const schema: Schema = {
+          type: 'object',
+          title: 'User'
+        };
+
+        const routes = generateRouteConfigs(schema);
+        const postRoute = routes['post:/api/users'];
+        const mockReq = { body: null };
+
+        const response = postRoute.response(mockReq);
+
+        expect(response).toHaveProperty('success', true);
+        expect(response).toHaveProperty('data');
+      });
+
+      it('should handle request with undefined body', () => {
+        const schema: Schema = {
+          type: 'object',
+          title: 'User'
+        };
+
+        const routes = generateRouteConfigs(schema);
+        const postRoute = routes['post:/api/users'];
+        const mockReq = { body: undefined };
+
+        const response = postRoute.response(mockReq);
+
+        expect(response).toHaveProperty('success', true);
+        expect(response).toHaveProperty('data');
+      });
+
+      it('should handle request with non-object body', () => {
+        const schema: Schema = {
+          type: 'object',
+          title: 'User'
+        };
+
+        const routes = generateRouteConfigs(schema);
+        const postRoute = routes['post:/api/users'];
+        const mockReq = { body: 'string body' };
+
+        const response = postRoute.response(mockReq);
+
+        expect(response).toHaveProperty('success', true);
+      });
+
+      it('should handle request with array body', () => {
+        const schema: Schema = {
+          type: 'object',
+          title: 'User'
+        };
+
+        const routes = generateRouteConfigs(schema);
+        const postRoute = routes['post:/api/users'];
+        const mockReq = { body: [1, 2, 3] };
+
+        const response = postRoute.response(mockReq);
+
+        expect(response).toHaveProperty('success', true);
+      });
+    });
+
+    describe('request with oversized body', () => {
+      it('should handle request with large object body', () => {
+        const schema: Schema = {
+          type: 'object',
+          title: 'User'
+        };
+
+        const routes = generateRouteConfigs(schema);
+        const postRoute = routes['post:/api/users'];
+
+        // Create a large body
+        const largeBody: any = {};
+        for (let i = 0; i < 100; i++) {
+          largeBody[`field${i}`] = `value${i}`.repeat(100);
+        }
+        const mockReq = { body: largeBody };
+
+        const response = postRoute.response(mockReq);
+
+        expect(response).toHaveProperty('success', true);
+        expect(response).toHaveProperty('data');
+      });
+
+      it('should handle request with deep nested body', () => {
+        const schema: Schema = {
+          type: 'object',
+          title: 'User'
+        };
+
+        const routes = generateRouteConfigs(schema);
+        const postRoute = routes['post:/api/users'];
+
+        // Create a deeply nested body
+        let nestedBody: any = { value: 'deep' };
+        for (let i = 0; i < 20; i++) {
+          nestedBody = { level: i, nested: nestedBody };
+        }
+        const mockReq = { body: nestedBody };
+
+        const response = postRoute.response(mockReq);
+
+        expect(response).toHaveProperty('success', true);
+      });
+    });
+
+    describe('request with special characters in URL', () => {
+      it('should handle request with URL-encoded characters in params', () => {
+        const schema: Schema = {
+          type: 'object',
+          title: 'User'
+        };
+
+        const routes = generateRouteConfigs(schema);
+        const getRoute = routes['get:/api/users/:id'];
+        const mockReq = { params: { id: 'user%20with%20spaces' } };
+
+        const response = getRoute.response(mockReq);
+
+        expect(response).toHaveProperty('success', true);
+        expect(response.data).toHaveProperty('id', 'user%20with%20spaces');
+      });
+
+      it('should handle request with unicode characters in params', () => {
+        const schema: Schema = {
+          type: 'object',
+          title: 'User'
+        };
+
+        const routes = generateRouteConfigs(schema);
+        const getRoute = routes['get:/api/users/:id'];
+        const mockReq = { params: { id: '用户123' } };
+
+        const response = getRoute.response(mockReq);
+
+        expect(response).toHaveProperty('success', true);
+        expect(response.data).toHaveProperty('id', '用户123');
+      });
+
+      it('should handle request with special characters in params', () => {
+        const schema: Schema = {
+          type: 'object',
+          title: 'User'
+        };
+
+        const routes = generateRouteConfigs(schema);
+        const getRoute = routes['get:/api/users/:id'];
+        const mockReq = { params: { id: 'user@domain.com' } };
+
+        const response = getRoute.response(mockReq);
+
+        expect(response).toHaveProperty('success', true);
+        expect(response.data).toHaveProperty('id', 'user@domain.com');
+      });
+    });
+
+    describe('request with query parameters', () => {
+      it('should handle request with empty query', () => {
+        const schema: Schema = {
+          type: 'object',
+          title: 'User'
+        };
+
+        const routes = generateRouteConfigs(schema);
+        const getRoute = routes['get:/api/users'];
+        const mockReq = { query: {} };
+
+        const response = getRoute.response(mockReq);
+
+        expect(response).toHaveProperty('success', true);
+        expect(response).toHaveProperty('data');
+      });
+
+      it('should handle request with single query param', () => {
+        const schema: Schema = {
+          type: 'object',
+          title: 'User'
+        };
+
+        const routes = generateRouteConfigs(schema);
+        const getRoute = routes['get:/api/users'];
+        const mockReq = { query: { page: '1' } };
+
+        const response = getRoute.response(mockReq);
+
+        expect(response).toHaveProperty('success', true);
+      });
+
+      it('should handle request with multiple query params', () => {
+        const schema: Schema = {
+          type: 'object',
+          title: 'User'
+        };
+
+        const routes = generateRouteConfigs(schema);
+        const getRoute = routes['get:/api/users'];
+        const mockReq = {
+          query: {
+            page: '1',
+            limit: '10',
+            sort: 'name',
+            filter: 'active'
+          }
+        };
+
+        const response = getRoute.response(mockReq);
+
+        expect(response).toHaveProperty('success', true);
+      });
+
+      it('should handle request with special characters in query params', () => {
+        const schema: Schema = {
+          type: 'object',
+          title: 'User'
+        };
+
+        const routes = generateRouteConfigs(schema);
+        const getRoute = routes['get:/api/users'];
+        const mockReq = {
+          query: {
+            search: 'hello world',
+            email: 'user@example.com'
+          }
+        };
+
+        const response = getRoute.response(mockReq);
+
+        expect(response).toHaveProperty('success', true);
+      });
+
+      it('should handle request with unicode in query params', () => {
+        const schema: Schema = {
+          type: 'object',
+          title: 'User'
+        };
+
+        const routes = generateRouteConfigs(schema);
+        const getRoute = routes['get:/api/users'];
+        const mockReq = {
+          query: {
+            name: '用户名',
+            city: '東京'
+          }
+        };
+
+        const response = getRoute.response(mockReq);
+
+        expect(response).toHaveProperty('success', true);
+      });
+    });
+
+    describe('request with headers', () => {
+      it('should handle request with empty headers', () => {
+        const schema: Schema = {
+          type: 'object',
+          title: 'User'
+        };
+
+        const routes = generateRouteConfigs(schema);
+        const getRoute = routes['get:/api/users'];
+        const mockReq = { headers: {} };
+
+        const response = getRoute.response(mockReq);
+
+        expect(response).toHaveProperty('success', true);
+      });
+
+      it('should handle request with standard headers', () => {
+        const schema: Schema = {
+          type: 'object',
+          title: 'User'
+        };
+
+        const routes = generateRouteConfigs(schema);
+        const getRoute = routes['get:/api/users'];
+        const mockReq = {
+          headers: {
+            'content-type': 'application/json',
+            'authorization': 'Bearer token123',
+            'accept': 'application/json'
+          }
+        };
+
+        const response = getRoute.response(mockReq);
+
+        expect(response).toHaveProperty('success', true);
+      });
+
+      it('should handle request with custom headers', () => {
+        const schema: Schema = {
+          type: 'object',
+          title: 'User'
+        };
+
+        const routes = generateRouteConfigs(schema);
+        const getRoute = routes['get:/api/users'];
+        const mockReq = {
+          headers: {
+            'x-custom-header': 'custom-value',
+            'x-request-id': '12345',
+            'x-api-version': 'v2'
+          }
+        };
+
+        const response = getRoute.response(mockReq);
+
+        expect(response).toHaveProperty('success', true);
+      });
+
+      it('should handle request with special characters in headers', () => {
+        const schema: Schema = {
+          type: 'object',
+          title: 'User'
+        };
+
+        const routes = generateRouteConfigs(schema);
+        const getRoute = routes['get:/api/users'];
+        const mockReq = {
+          headers: {
+            'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
+            'referer': 'https://example.com/page?param=value'
+          }
+        };
+
+        const response = getRoute.response(mockReq);
+
+        expect(response).toHaveProperty('success', true);
+      });
+    });
+
+    describe('request with mixed edge cases', () => {
+      it('should handle request with all edge cases combined', () => {
+        const schema: Schema = {
+          type: 'object',
+          title: 'User'
+        };
+
+        const routes = generateRouteConfigs(schema);
+        const postRoute = routes['post:/api/users'];
+
+        const mockReq = {
+          params: { id: 'user%20123' },
+          query: {
+            source: 'web',
+            referrer: 'https://example.com'
+          },
+          headers: {
+            'content-type': 'application/json',
+            'x-custom': 'value'
+          },
+          body: {
+            name: '用户',
+            email: 'user@example.com',
+            nested: { deep: { value: 'test' } }
+          }
+        };
+
+        const response = postRoute.response(mockReq);
+
+        expect(response).toHaveProperty('success', true);
+        expect(response).toHaveProperty('data');
+      });
+    });
+
+    describe('resource name edge cases', () => {
+      it('should handle resource name with special characters', () => {
+        const dsl = generateCRUDDSL('User-Profile');
+
+        expect(dsl[0].path).toBe('/api/user-profiles');
+      });
+
+      it('should handle resource name with numbers', () => {
+        const dsl = generateCRUDDSL('API2User');
+
+        expect(dsl[0].path).toBe('/api/api2users');
+      });
+
+      it('should handle single character resource name', () => {
+        const dsl = generateCRUDDSL('A');
+
+        expect(dsl[0].path).toBe('/api/as');
+      });
+
+      it('should handle resource name with consecutive uppercase', () => {
+        const dsl = generateCRUDDSL('XMLParser');
+
+        expect(dsl[0].path).toBe('/api/xmlparsers');
+      });
     });
   });
 });

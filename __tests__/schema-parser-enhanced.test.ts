@@ -124,7 +124,7 @@ describe('SchemaParser - Enhanced Tests', () => {
       expect(() => {
         SchemaParser.parse(null as any);
       }).toThrow(SchemaParseError);
-      
+
       expect(() => {
         SchemaParser.parse(null as any);
       }).toThrow('Schema is required');
@@ -238,7 +238,7 @@ describe('SchemaParser - Enhanced Tests', () => {
       expect(Array.isArray(result)).toBe(true);
       expect(result.length).toBeGreaterThanOrEqual(2);
       expect(result.length).toBeLessThanOrEqual(5);
-      
+
       result.forEach((item: any) => {
         expect(item).toHaveProperty('id');
         expect(item).toHaveProperty('value');
@@ -405,10 +405,10 @@ describe('SchemaParser - Enhanced Tests', () => {
 
       // Generate multiple times and check if at least one includes optional props
       const results = Array.from({ length: 20 }, () => SchemaParser.parse(schema));
-      const hasOptional = results.some(r => 
+      const hasOptional = results.some(r =>
         Object.keys(r).some(k => k.startsWith('optional'))
       );
-      
+
       expect(hasOptional).toBe(true);
     });
   });
@@ -422,9 +422,327 @@ describe('SchemaParser - Enhanced Tests', () => {
       const results = Array.from({ length: 20 }, () => SchemaParser.parse(schema));
       const types = results.map(r => r === null ? 'null' : typeof r);
       const uniqueTypes = new Set(types);
-      
+
       // Should generate at least 2 different types over 20 iterations
       expect(uniqueTypes.size).toBeGreaterThanOrEqual(2);
+    });
+  });
+
+  describe('SchemaParser - Edge Cases', () => {
+    describe('empty schemas', () => {
+      it('should handle empty object schema', () => {
+        const schema: Schema = { type: 'object' };
+        const result = SchemaParser.parse(schema);
+        expect(typeof result).toBe('object');
+        expect(Object.keys(result).length).toBe(0);
+      });
+
+      it('should handle empty array schema', () => {
+        const schema: Schema = { type: 'array' };
+        const result = SchemaParser.parse(schema);
+        expect(Array.isArray(result)).toBe(true);
+      });
+
+      it('should handle empty string schema', () => {
+        const schema: Schema = { type: 'string' };
+        const result = SchemaParser.parse(schema);
+        expect(typeof result).toBe('string');
+      });
+    });
+
+    describe('very deep nesting', () => {
+      it('should handle 10+ levels of nested objects', () => {
+        // Create a deeply nested schema
+        let nestedSchema: any = { type: 'string' };
+        for (let i = 0; i < 10; i++) {
+          nestedSchema = {
+            type: 'object',
+            properties: { [`level${i}`]: nestedSchema },
+            required: [`level${i}`]
+          };
+        }
+        const schema: Schema = nestedSchema;
+
+        const result = SchemaParser.parse(schema);
+        expect(typeof result).toBe('object');
+
+        // Verify deep nesting was parsed
+        let current = result;
+        for (let i = 0; i < 10; i++) {
+          expect(current).toHaveProperty(`level${i}`);
+          current = current[`level${i}`];
+        }
+        expect(typeof current).toBe('string');
+      });
+
+      it('should handle 15 levels of nested objects', () => {
+        let nestedSchema: any = { type: 'string' };
+        for (let i = 0; i < 15; i++) {
+          nestedSchema = {
+            type: 'object',
+            properties: { [`deep${i}`]: nestedSchema },
+            required: [`deep${i}`]
+          };
+        }
+        const schema: Schema = nestedSchema;
+
+        const result = SchemaParser.parse(schema);
+        expect(typeof result).toBe('object');
+
+        let current = result;
+        for (let i = 0; i < 15; i++) {
+          expect(current).toHaveProperty(`deep${i}`);
+          current = current[`deep${i}`];
+        }
+      });
+    });
+
+    describe('arrays with mixed types', () => {
+      it('should handle array with oneOf mixed types', () => {
+        const schema: Schema = {
+          type: 'array',
+          items: {
+            oneOf: [
+              { type: 'string' },
+              { type: 'number' },
+              { type: 'boolean' },
+              { type: 'null' }
+            ]
+          }
+        };
+
+        const result = SchemaParser.parse(schema);
+        expect(Array.isArray(result)).toBe(true);
+        expect(result.length).toBeGreaterThan(0);
+      });
+
+      it('should handle array with anyOf mixed types', () => {
+        const schema: Schema = {
+          type: 'array',
+          items: {
+            anyOf: [
+              { type: 'string' },
+              { type: 'number' }
+            ]
+          }
+        };
+
+        const result = SchemaParser.parse(schema);
+        expect(Array.isArray(result)).toBe(true);
+      });
+    });
+
+    describe('objects with special characters in keys', () => {
+      it('should handle keys with spaces', () => {
+        const schema: Schema = {
+          type: 'object',
+          properties: {
+            'first name': { type: 'string' },
+            'last name': { type: 'string' }
+          },
+          required: ['first name', 'last name']
+        };
+
+        const result = SchemaParser.parse(schema);
+        expect(result).toHaveProperty('first name');
+        expect(result).toHaveProperty('last name');
+      });
+
+      it('should handle keys with special characters', () => {
+        const schema: Schema = {
+          type: 'object',
+          properties: {
+            'user-id': { type: 'string' },
+            'user_name': { type: 'string' },
+            'user@domain': { type: 'string' },
+            'user$id': { type: 'string' }
+          },
+          required: ['user-id', 'user_name']
+        };
+
+        const result = SchemaParser.parse(schema);
+        expect(result).toHaveProperty('user-id');
+        expect(result).toHaveProperty('user_name');
+      });
+
+      it('should handle keys with unicode characters', () => {
+        const schema: Schema = {
+          type: 'object',
+          properties: {
+            '用户名': { type: 'string' },
+            '名前': { type: 'string' },
+            'имя': { type: 'string' }
+          },
+          required: ['用户名']
+        };
+
+        const result = SchemaParser.parse(schema);
+        expect(result).toHaveProperty('用户名');
+        expect(result).toHaveProperty('名前');
+        expect(result).toHaveProperty('имя');
+      });
+    });
+
+    describe('enums with no values', () => {
+      it('should handle empty enum array', () => {
+        const schema: Schema = {
+          type: 'string',
+          enum: []
+        };
+
+        // Empty enum should fall back to default string generation
+        const result = SchemaParser.parse(schema);
+        expect(typeof result).toBe('string');
+      });
+
+      it('should handle enum with single value', () => {
+        const schema: Schema = {
+          type: 'string',
+          enum: ['only-value']
+        };
+
+        const result = SchemaParser.parse(schema);
+        expect(result).toBe('only-value');
+      });
+    });
+
+    describe('required fields with null/undefined values', () => {
+      it('should handle null in required field', () => {
+        const schema: Schema = {
+          type: 'object',
+          properties: {
+            id: { type: 'string' },
+            name: { type: ['string', 'null'] }
+          },
+          required: ['id', 'name']
+        };
+
+        const result = SchemaParser.parse(schema);
+        expect(result).toHaveProperty('id');
+        expect(result).toHaveProperty('name');
+        expect(typeof result.id).toBe('string');
+        expect(result.name === null || typeof result.name === 'string').toBe(true);
+      });
+
+      it('should handle allOf with null type', () => {
+        const schema: Schema = {
+          type: 'object',
+          properties: {
+            value: {
+              allOf: [
+                { type: 'string' },
+                { type: 'null' }
+              ]
+            }
+          },
+          required: ['value']
+        };
+
+        const result = SchemaParser.parse(schema);
+        expect(result).toHaveProperty('value');
+      });
+    });
+
+    describe('boundary values', () => {
+      it('should handle minimum equal to maximum', () => {
+        const schema: Schema = {
+          type: 'number',
+          minimum: 42,
+          maximum: 42
+        };
+
+        const result = SchemaParser.parse(schema);
+        expect(result).toBe(42);
+      });
+
+      it('should handle very large numbers', () => {
+        const schema: Schema = {
+          type: 'number',
+          minimum: Number.MAX_SAFE_INTEGER - 1000,
+          maximum: Number.MAX_SAFE_INTEGER
+        };
+
+        const result = SchemaParser.parse(schema);
+        expect(typeof result).toBe('number');
+        expect(result).toBeGreaterThanOrEqual(Number.MAX_SAFE_INTEGER - 1000);
+        expect(result).toBeLessThanOrEqual(Number.MAX_SAFE_INTEGER);
+      });
+
+      it('should handle very small numbers', () => {
+        const schema: Schema = {
+          type: 'number',
+          minimum: Number.MIN_SAFE_INTEGER,
+          maximum: Number.MIN_SAFE_INTEGER + 1000
+        };
+
+        const result = SchemaParser.parse(schema);
+        expect(typeof result).toBe('number');
+      });
+
+      it('should handle minimum string length equal to maximum', () => {
+        const schema: Schema = {
+          type: 'string',
+          minLength: 5,
+          maxLength: 5
+        };
+
+        const result = SchemaParser.parse(schema);
+        expect(result.length).toBe(5);
+      });
+
+      it('should handle very long string constraints', () => {
+        const schema: Schema = {
+          type: 'string',
+          minLength: 100,
+          maxLength: 200
+        };
+
+        const result = SchemaParser.parse(schema);
+        expect(result.length).toBeGreaterThanOrEqual(100);
+        expect(result.length).toBeLessThanOrEqual(200);
+      });
+    });
+
+    describe('complex combinations', () => {
+      it('should handle nested arrays with objects', () => {
+        const schema: Schema = {
+          type: 'array',
+          items: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                id: { type: 'string' },
+                value: { type: 'number' }
+              },
+              required: ['id']
+            }
+          }
+        };
+
+        const result = SchemaParser.parse(schema);
+        expect(Array.isArray(result)).toBe(true);
+      });
+
+      it('should handle object with array of arrays', () => {
+        const schema: Schema = {
+          type: 'object',
+          properties: {
+            matrix: {
+              type: 'array',
+              items: {
+                type: 'array',
+                items: { type: 'number' }
+              }
+            }
+          },
+          required: ['matrix']
+        };
+
+        const result = SchemaParser.parse(schema);
+        expect(result).toHaveProperty('matrix');
+        expect(Array.isArray(result.matrix)).toBe(true);
+      });
     });
   });
 });
