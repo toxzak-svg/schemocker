@@ -1,0 +1,716 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Schemock — JSON Schema to live REST API in 60 seconds</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0a0a0b;
+      --surface: #111113;
+      --border: #222226;
+      --text: #e4e4e7;
+      --muted: #71717a;
+      --accent: #6366f1;
+      --accent-dim: #4f46e5;
+      --green: #22c55e;
+      --amber: #f59e0b;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Inter', -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      min-height: 100vh;
+    }
+
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 0 1.5rem;
+    }
+
+    /* Nav */
+    nav {
+      padding: 1.25rem 0;
+      border-bottom: 1px solid var(--border);
+    }
+    nav .container {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .logo {
+      font-size: 1.25rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .logo-icon {
+      width: 28px;
+      height: 28px;
+      background: var(--accent);
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.75rem;
+    }
+    .nav-links {
+      display: flex;
+      gap: 1.5rem;
+      list-style: none;
+    }
+    .nav-links a {
+      color: var(--muted);
+      text-decoration: none;
+      font-size: 0.875rem;
+      font-weight: 500;
+      transition: color 0.15s;
+    }
+    .nav-links a:hover { color: var(--text); }
+    .github-star {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 0.35rem 0.75rem;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--text);
+      text-decoration: none;
+      transition: border-color 0.15s;
+    }
+    .github-star:hover { border-color: var(--muted); }
+
+    /* Hero */
+    .hero {
+      padding: 5rem 0 4rem;
+      text-align: center;
+    }
+    .hero h1 {
+      font-size: clamp(2rem, 6vw, 3.5rem);
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      line-height: 1.1;
+      margin-bottom: 1.25rem;
+    }
+    .hero h1 .gradient {
+      background: linear-gradient(135deg, #6366f1, #a855f7);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .hero .tagline {
+      font-size: 1.125rem;
+      color: var(--muted);
+      max-width: 520px;
+      margin: 0 auto 2.5rem;
+      font-weight: 400;
+    }
+    .hero .cta-group {
+      display: flex;
+      gap: 0.75rem;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin-bottom: 3rem;
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.65rem 1.25rem;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      text-decoration: none;
+      transition: all 0.15s;
+      cursor: pointer;
+      border: none;
+    }
+    .btn-primary {
+      background: var(--accent);
+      color: #fff;
+    }
+    .btn-primary:hover { background: var(--accent-dim); }
+    .btn-secondary {
+      background: var(--surface);
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+    .btn-secondary:hover { border-color: var(--muted); }
+    .hero-meta {
+      font-size: 0.8rem;
+      color: var(--muted);
+      display: flex;
+      gap: 1rem;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+    .hero-meta span { display: flex; align-items: center; gap: 0.3rem; }
+
+    /* Terminal Demo */
+    .demo-section {
+      padding: 0 0 4rem;
+    }
+    .demo-window {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+      max-width: 680px;
+      margin: 0 auto;
+      box-shadow: 0 0 0 1px rgba(99,102,241,0.08), 0 24px 48px rgba(0,0,0,0.5);
+    }
+    .demo-titlebar {
+      background: #1a1a1d;
+      padding: 0.75rem 1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+    .dot { width: 12px; height: 12px; border-radius: 50%; }
+    .dot-red { background: #ff5f57; }
+    .dot-yellow { background: #ffbd2e; }
+    .dot-green { background: #28ca41; }
+    .demo-titlebar span {
+      margin-left: 0.5rem;
+      font-size: 0.78rem;
+      color: var(--muted);
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .demo-body {
+      padding: 1.5rem;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.85rem;
+      line-height: 1.8;
+    }
+    .demo-body .line { display: flex; gap: 0.75rem; margin-bottom: 0.25rem; }
+    .prompt { color: var(--accent); user-select: none; }
+    .comment { color: var(--muted); }
+    .output { color: #a1a1aa; }
+    .output .key { color: #e4e4e7; }
+    .output .string { color: #22c55e; }
+    .output .number { color: #f59e0b; }
+    .output .null { color: var(--muted); }
+    .blink { animation: blink 1s step-end infinite; }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+
+    /* Features */
+    .features { padding: 4rem 0; }
+    .section-label {
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--accent);
+      margin-bottom: 0.75rem;
+    }
+    .section-title {
+      font-size: 1.75rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      margin-bottom: 0.5rem;
+    }
+    .section-sub {
+      color: var(--muted);
+      margin-bottom: 2.5rem;
+      max-width: 500px;
+    }
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 1rem;
+    }
+    .feature-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1.25rem;
+    }
+    .feature-card h3 {
+      font-size: 0.95rem;
+      font-weight: 700;
+      margin-bottom: 0.4rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .feature-card p { font-size: 0.85rem; color: var(--muted); }
+    .feature-icon {
+      width: 28px;
+      height: 28px;
+      border-radius: 6px;
+      background: rgba(99,102,241,0.15);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.75rem;
+      flex-shrink: 0;
+    }
+    .emoji { font-size: 1rem; }
+
+    /* MCP Section */
+    .mcp-section {
+      padding: 4rem 0;
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+    }
+    .mcp-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 3rem;
+      align-items: center;
+    }
+    @media (max-width: 640px) { .mcp-grid { grid-template-columns: 1fr; } }
+    .mcp-text .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      background: rgba(99,102,241,0.12);
+      border: 1px solid rgba(99,102,241,0.25);
+      color: #a5b4fc;
+      font-size: 0.75rem;
+      font-weight: 600;
+      padding: 0.3rem 0.65rem;
+      border-radius: 100px;
+      margin-bottom: 1rem;
+    }
+    .mcp-text h2 {
+      font-size: 1.5rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      margin-bottom: 0.75rem;
+    }
+    .mcp-text p { color: var(--muted); font-size: 0.9rem; margin-bottom: 1rem; }
+    .mcp-text ul {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+    }
+    .mcp-text li::before { content: '→ '; color: var(--accent); }
+    .mcp-text li { font-size: 0.875rem; color: var(--muted); }
+    .mcp-code {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1.25rem;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.78rem;
+      line-height: 1.7;
+    }
+    .mcp-code .label { color: var(--muted); margin-bottom: 0.5rem; display: block; }
+    .mcp-code .kw { color: #c084fc; }
+    .mcp-code .str { color: #22c55e; }
+    .mcp-code .fn { color: #60a5fa; }
+    .mcp-code .comment { color: var(--muted); }
+
+    /* Scenarios */
+    .scenarios { padding: 4rem 0; }
+    .scenario-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 0.75rem;
+      margin-top: 2rem;
+    }
+    .scenario-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+    }
+    .scenario-card .scenario-name {
+      font-weight: 700;
+      font-size: 0.875rem;
+    }
+    .scenario-card .scenario-desc { font-size: 0.78rem; color: var(--muted); }
+    .scenario-card code {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.72rem;
+      color: var(--accent);
+      background: rgba(99,102,241,0.1);
+      padding: 0.15rem 0.4rem;
+      border-radius: 4px;
+      width: fit-content;
+    }
+
+    /* Install */
+    .install { padding: 4rem 0; text-align: center; }
+    .install h2 { font-size: 1.5rem; font-weight: 800; margin-bottom: 0.75rem; }
+    .install p { color: var(--muted); margin-bottom: 1.5rem; font-size: 0.9rem; }
+    .install code {
+      display: block;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.75rem 1.25rem;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.85rem;
+      max-width: 500px;
+      margin: 0 auto 1.5rem;
+      text-align: left;
+    }
+    .install code .comment { color: var(--muted); }
+    .downloads {
+      display: flex;
+      gap: 0.75rem;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin-top: 1.5rem;
+    }
+    .download-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.6rem 1.1rem;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      text-decoration: none;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      transition: all 0.15s;
+    }
+    .download-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+    /* Comparison */
+    .comparison { padding: 4rem 0; }
+    .comp-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.85rem;
+      margin-top: 1.5rem;
+    }
+    .comp-table th {
+      text-align: left;
+      padding: 0.6rem 1rem;
+      border-bottom: 1px solid var(--border);
+      color: var(--muted);
+      font-weight: 600;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .comp-table td {
+      padding: 0.6rem 1rem;
+      border-bottom: 1px solid var(--border);
+    }
+    .comp-table tr:last-child td { border-bottom: none; }
+    .comp-table .check { color: var(--green); }
+    .comp-table .cross { color: #ef4444; }
+    .comp-table .warn { color: var(--amber); }
+    .comp-table .highlight td { background: rgba(99,102,241,0.06); }
+
+    /* Footer */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 2rem 0;
+      margin-top: 2rem;
+    }
+    footer .container {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+    footer p { font-size: 0.8rem; color: var(--muted); }
+    footer a { color: var(--muted); text-decoration: none; }
+    footer a:hover { color: var(--text); }
+    .footer-links { display: flex; gap: 1.25rem; list-style: none; font-size: 0.8rem; }
+
+    /* Stats bar */
+    .stats-bar {
+      display: flex;
+      gap: 2rem;
+      justify-content: center;
+      flex-wrap: wrap;
+      padding: 1.25rem 0;
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+      margin: 2rem 0;
+    }
+    .stat { text-align: center; }
+    .stat .num { font-size: 1.5rem; font-weight: 800; }
+    .stat .label { font-size: 0.75rem; color: var(--muted); }
+
+    /* Responsive */
+    @media (max-width: 640px) {
+      .nav-links { display: none; }
+      .hero { padding: 3rem 0 2.5rem; }
+      .comp-table { font-size: 0.75rem; }
+    }
+  </style>
+</head>
+<body>
+
+  <nav>
+    <div class="container">
+      <div class="logo">
+        <div class="logo-icon">⚡</div>
+        Schemock
+      </div>
+      <ul class="nav-links">
+        <li><a href="#features">Features</a></li>
+        <li><a href="#mcp">AI + MCP</a></li>
+        <li><a href="#scenarios">Scenarios</a></li>
+        <li><a href="#install">Install</a></li>
+      </ul>
+      <a class="github-star" href="https://github.com/toxzak-svg/schemock-app" target="_blank">
+        ★ Star on GitHub
+      </a>
+    </div>
+  </nav>
+
+  <section class="hero">
+    <div class="container">
+      <h1>JSON Schema → <span class="gradient">Fake REST API</span><br>in 60 seconds</h1>
+      <p class="tagline">Drop a JSON Schema in. Get a full mock REST API out. Single binary, zero deps, works offline.</p>
+      <div class="cta-group">
+        <a href="#install" class="btn btn-primary">↓ Download Free</a>
+        <a href="https://github.com/toxzak-svg/schemock-app" class="btn btn-secondary" target="_blank">View on GitHub</a>
+      </div>
+      <div class="hero-meta">
+        <span>✅ 176 tests passing</span>
+        <span>📦 Single binary</span>
+        <span>🔌 MCP server built-in</span>
+        <span>🌙 Works offline</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="demo-section">
+    <div class="container">
+      <div class="demo-window">
+        <div class="demo-titlebar">
+          <div class="dot dot-red"></div>
+          <div class="dot dot-yellow"></div>
+          <div class="dot dot-green"></div>
+          <span>terminal</span>
+        </div>
+        <div class="demo-body">
+          <div class="line"><span class="prompt">$</span> <span>schemock start user-schema.json</span></div>
+          <div class="line" style="margin-top:0.5rem"><span class="comment"># → Server running at http://localhost:3000</span></div>
+          <div class="line" style="margin-top:1rem"><span class="prompt">$</span> <span>curl http://localhost:3000/api/data</span></div>
+          <div class="line" style="margin-top:0.25rem"><span class="output">{</span></div>
+          <div class="line"><span class="output">  <span class="string">"id"</span>: <span class="string">"550e8400-e29b-41d4-a716-446655440000"</span>,</span></div>
+          <div class="line"><span class="output">  <span class="string">"fullName"</span>: <span class="string">"Sarah Chen"</span>,</span></div>
+          <div class="line"><span class="output">  <span class="string">"email"</span>: <span class="string">"sarah.chen@example.com"</span>,</span></div>
+          <div class="line"><span class="output">  <span class="string">"age"</span>: <span class="number">28</span>,</span></div>
+          <div class="line"><span class="output">  <span class="string">"createdAt"</span>: <span class="string">"2025-11-04T09:22:17.000Z"</span></span></div>
+          <div class="line"><span class="output">}<span class="blink">_</span></span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="stats-bar" id="features">
+    <div class="stat"><div class="num">60s</div><div class="label">from zero to API</div></div>
+    <div class="stat"><div class="num">0</div><div class="label">dependencies</div></div>
+    <div class="stat"><div class="num">176</div><div class="label">tests passing</div></div>
+    <div class="stat"><div class="num">3</div><div class="label">commands to start</div></div>
+  </section>
+
+  <section class="features">
+    <div class="container">
+      <div class="section-label">Why Schemock</div>
+      <h2 class="section-title">Built for the frontend dev blocked by backend</h2>
+      <p class="section-sub">Stop waiting. Stop hardcoding. Stop using stale mock data that drifts from reality.</p>
+
+      <div class="features-grid">
+        <div class="feature-card">
+          <h3><div class="feature-icon"><span class="emoji">📋</span></div> Schema is truth</h3>
+          <p>JSON Schema is your contract. Use it to generate the mock, validate requests, and document the API — one source of truth.</p>
+        </div>
+        <div class="feature-card">
+          <h3><div class="feature-icon"><span class="emoji">⚡</span></div> Zero friction</h3>
+          <p>Download the binary. Run <code>schemock start</code>. That's it. No Node, no Docker, no sign-up, no config files.</p>
+        </div>
+        <div class="feature-card">
+          <h3><div class="feature-icon"><span class="emoji">🔄</span></div> Hot reload</h3>
+          <p>Edit your schema, save — the server auto-restarts. Test schema changes instantly without restarting your dev server.</p>
+        </div>
+        <div class="feature-card">
+          <h3><div class="feature-icon"><span class="emoji">🎭</span></div> Realistic data</h3>
+          <p>UUIDs, emails, dates, enums — generated to match your schema formats. Not "John Doe 1, John Doe 2."</p>
+        </div>
+        <div class="feature-card">
+          <h3><div class="feature-icon"><span class="emoji">🧪</span></div> Test scenarios</h3>
+          <p>Flip between slow networks, error-heavy responses, and happy-path with a single flag. Test your UI's edge cases.</p>
+        </div>
+        <div class="feature-card">
+          <h3><div class="feature-icon"><span class="emoji">🤖</span></div> AI-native (MCP)</h3>
+          <p>Built-in MCP server. Let Claude, Cursor, or any MCP AI explore your mock API and generate matching code.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="mcp-section" id="mcp">
+    <div class="container">
+      <div class="mcp-grid">
+        <div class="mcp-text">
+          <div class="badge">🤖 MCP Native</div>
+          <h2>Your AI assistant<br>uses your mock API</h2>
+          <p>Schemock ships with a built-in MCP server. Your AI tools can discover endpoints, make requests, and generate matching frontend code — all from your JSON Schema.</p>
+          <ul>
+            <li>Claude, Cursor, and any MCP client work out of the box</li>
+            <li>Auto-discovers routes from your schema</li>
+            <li>AI generates type-safe React/Vue components from responses</li>
+            <li>No configuration needed</li>
+          </ul>
+        </div>
+        <div class="mcp-code">
+          <span class="label">// Claude Desktop / Cursor — add to your MCP config</span>
+          {<br>
+          &nbsp;&nbsp;<span class="kw">"mcpServers"</span>: {<br>
+          &nbsp;&nbsp;&nbsp;&nbsp;<span class="str">"schemocker"</span>: {<br>
+          &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="kw">"command"</span>: <span class="str">"node"</span>,<br>
+          &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="kw">"args"</span>: [<br>
+          &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="str">"/path/to/schemocker/dist/mcp-server/index.js"</span><br>
+          &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;]<br>
+          &nbsp;&nbsp;&nbsp;&nbsp;}<br>
+          &nbsp;&nbsp;}<br>
+          }<br><br>
+          <span class="comment">// Then ask your AI:</span><br>
+          <span class="fn">"Generate a React component</span><br>
+          <span class="fn">&nbsp;&nbsp;fetching from /api/data"</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="scenarios" id="scenarios">
+    <div class="container">
+      <div class="section-label">Testing Scenarios</div>
+      <h2 class="section-title">Test how your UI handles reality</h2>
+      <p class="section-sub">Flip between network conditions and error states without touching your code.</p>
+
+      <div class="scenario-grid">
+        <div class="scenario-card">
+          <div class="scenario-name">🌿 Happy Path</div>
+          <div class="scenario-desc">Fast responses, no errors. Default mode.</div>
+          <code>--scenario happy-path</code>
+        </div>
+        <div class="scenario-card">
+          <div class="scenario-name">🐢 Slow Network</div>
+          <div class="scenario-desc">1–3 second delays. Test your loading states.</div>
+          <code>--scenario slow</code>
+        </div>
+        <div class="scenario-card">
+          <div class="scenario-name">💥 Error Heavy</div>
+          <div class="scenario-desc">Random 400s and 500s. Test your error boundaries.</div>
+          <code>--scenario error-heavy</code>
+        </div>
+        <div class="scenario-card">
+          <div class="scenario-name">😰 Sad Path</div>
+          <div class="scenario-desc">Slow + errors combined. Worst case.</div>
+          <code>--scenario sad-path</code>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="comparison">
+    <div class="container">
+      <div class="section-label">vs Alternatives</div>
+      <h2 class="section-title">No comparison table wars — just facts</h2>
+
+      <table class="comp-table">
+        <thead>
+          <tr>
+            <th></th>
+            <th>Schemock</th>
+            <th>Mockoon</th>
+            <th>MSW</th>
+            <th>JSON Server</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Binary, zero deps</td>
+            <td class="check highlight">✅</td>
+            <td class="cross">❌ desktop app</td>
+            <td class="cross">❌ npm package</td>
+            <td class="cross">❌ Node required</td>
+          </tr>
+          <tr>
+            <td>JSON Schema first-class</td>
+            <td class="check highlight">✅ primary input</td>
+            <td class="warn">⚠️ partial</td>
+            <td class="cross">❌</td>
+            <td class="cross">❌</td>
+          </tr>
+          <tr>
+            <td>Works offline</td>
+            <td class="check highlight">✅</td>
+            <td class="check">✅</td>
+            <td class="cross">❌</td>
+            <td class="cross">❌</td>
+          </tr>
+          <tr>
+            <td>Built-in MCP server</td>
+            <td class="check highlight">✅</td>
+            <td class="cross">❌</td>
+            <td class="cross">❌</td>
+            <td class="cross">❌</td>
+          </tr>
+          <tr>
+            <td>Setup time</td>
+            <td class="check highlight"><strong>&lt;60 seconds</strong></td>
+            <td>2–5 min</td>
+            <td>15+ min</td>
+            <td>10+ min</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="install" id="install">
+    <div class="container">
+      <h2>Get started in 60 seconds</h2>
+      <p>Download, run, start building. No account required.</p>
+      <code>curl -fsSL https://raw.githubusercontent.com/toxzak-svg/schemock-app/main/install.sh | bash</code>
+      <p style="font-size:0.78rem; margin-top:-1rem; margin-bottom:1.5rem">Windows: <code style="display:inline; background:transparent; border:none; padding:0">iwr https://raw.githubusercontent.com/toxzak-svg/schemock-app/main/install.ps1 | iex</code></p>
+      <div class="downloads">
+        <a href="https://github.com/toxzak-svg/schemock-app/releases" class="download-btn" target="_blank">
+          📥 Windows (v1.0.0)
+        </a>
+        <a href="https://github.com/toxzak-svg/schemock-app" class="download-btn" target="_blank">
+          🐙 GitHub
+        </a>
+        <a href="./docs" class="download-btn">
+          📖 Docs
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <div class="container">
+      <p>Schemock · MIT License · Built by <a href="https://github.com/toxzak-svg" target="_blank">@toxzak-svg</a></p>
+      <ul class="footer-links">
+        <li><a href="https://github.com/toxzak-svg/schemock-app" target="_blank">GitHub</a></li>
+        <li><a href="./docs/user-guide.md">Docs</a></li>
+        <li><a href="./docs/troubleshooting.md">Troubleshooting</a></li>
+      </ul>
+    </div>
+  </footer>
+
+</body>
+</html>
