@@ -1,12 +1,87 @@
 import { v4 as uuidv4 } from 'uuid';
 import { SchemaParser } from '../parsers/schema';
+import { WorldState, detectForeignKey, isIdField } from './world-state';
 import {
     RouteConfig,
     RouteRequest,
     ServerState,
     JSONValue,
+    NonNullJSONValue,
     Schema
 } from '../types';
+
+// ServerState reserved key for world-state instance
+const WORLD_KEY = '_world' as keyof ServerState;
+
+type WorldStateStore = Record<string, unknown>;
+
+/**
+ * Lazily get or create the WorldState from a ServerState.
+ * Stored on a reserved key so it persists across handler calls.
+ */
+function getWorld(state: ServerState): WorldState {
+    const store = state as unknown as WorldStateStore;
+    if (!store[WORLD_KEY]) {
+        store[WORLD_KEY] = new WorldState();
+    }
+    return store[WORLD_KEY] as WorldState;
+}
+
+/**
+ * Given a resource name (e.g. "users", "blog_posts") and a schema,
+ * determines the appropriate resource key for the world state pool.
+ *
+ * "users" → "users", "userProfiles" → "users", "blogpost" → "blogposts"
+ */
+function worldResourceKey(resource: string): string {
+    const r = resource.toLowerCase().replace(/[_-]/g, '');
+    // Strip common suffixes
+    return r.replace(/s$/, '');
+}
+
+/**
+ * Wraps an entity with WorldState FK resolution and registration.
+ *
+ * 1. Detects and resolves FK fields (authorId, userId, etc.) to real IDs
+ *    from the world state's entity pools
+ * 2. Registers the entity so subsequent FK references can find it
+ *
+ * @param entity   The entity to process
+ * @param resource The resource name (for world state pool key)
+ * @param world    The WorldState instance
+ * @returns The resolved entity with real FK IDs
+ */
+function resolveAndRegister(
+    entity: JSONValue,
+    resource: string,
+    world: WorldState
+): NonNullJSONValue {
+    if (!entity || typeof entity !== 'object' || Array.isArray(entity)) {
+        // Shouldn't happen for the call sites (objects only), but satisfy the type system
+        return entity as NonNullJSONValue;
+    }
+
+    const obj = entity as Record<string, JSONValue>;
+    const resolved = { ...obj };
+
+    // Step 1: resolve FK fields → real IDs from the world
+    for (const [key, value] of Object.entries(resolved)) {
+        if (isIdField(key) && typeof value === 'string') {
+            const ref = detectForeignKey(key);
+            if (ref && world.hasEntities(ref)) {
+                const realEntity = world.getRandomEntity(ref);
+                if (realEntity && typeof realEntity === 'object' && 'id' in realEntity) {
+                    resolved[key] = String((realEntity as Record<string, JSONValue>).id);
+                }
+            }
+        }
+    }
+
+    // Step 2: register so future FK references can find this entity
+    world.register(worldResourceKey(resource), resolved);
+
+    return resolved as NonNullJSONValue;
+}
 
 /**
  * Determines the resource name from schema title or options
@@ -82,6 +157,8 @@ function handleGetById(
     options: { strict?: boolean },
     wrap: boolean
 ): JSONValue {
+    const world = getWorld(state);
+
     const item = state[resource].find((i: JSONValue) =>
         typeof i === 'object' && i !== null && 'id' in i && i.id === req.params?.id
     );
@@ -95,13 +172,17 @@ function handleGetById(
         } : item;
     }
 
-    // Fallback: generate, tie to ID, and store in state for consistency
+    // Fallback: generate, tie to ID, store, and register with world
     let data = SchemaParser.parse(responseSchema, mainSchema, new Set(), options.strict, resource);
-    if (data && typeof data === 'object' && !Array.isArray(data) && req.params?.id) {
+    if (data && typeof data === 'object' && !Array.isArray(data)) {
         const dataObj = data as Record<string, JSONValue>;
-        dataObj.id = req.params.id;
-        state[resource].push(dataObj);
-        data = dataObj;
+        if (req.params?.id) {
+            dataObj.id = req.params.id;
+        }
+        // Resolve FKs and register with world state
+        const resolved = resolveAndRegister(dataObj, resource, world);
+        state[resource].push(resolved);
+        data = resolved;
     }
 
     return wrap ? {
@@ -131,22 +212,27 @@ function handleGetCollection(
     options: { strict?: boolean },
     wrap: boolean
 ): JSONValue {
+    const world = getWorld(state);
+
     // Return list from state
     if (state[resource].length === 0) {
-        // Populate with some initial data
+        // Populate with initial data, resolving FKs for each entity
         const generated = SchemaParser.parse(responseSchema, mainSchema, new Set(), options.strict, resource);
         if (Array.isArray(generated)) {
-            state[resource] = generated;
+            state[resource] = generated.map(item =>
+                resolveAndRegister(item, resource, world)
+            );
         } else {
             for (let i = 0; i < 3; i++) {
                 const item = SchemaParser.parse(responseSchema, mainSchema, new Set(), options.strict, resource);
                 if (item && typeof item === 'object' && !Array.isArray(item)) {
                     const itemObj = item as Record<string, JSONValue>;
                     if (!itemObj.id) {
-                        itemObj.id = uuidv4();
+                        itemObj.id = `${worldResourceKey(resource)}-${i + 1}`;
                     }
+                    const resolved = resolveAndRegister(itemObj, resource, world);
+                    state[resource].push(resolved);
                 }
-                state[resource].push(item);
             }
         }
     }
@@ -175,16 +261,21 @@ function handlePost(
     req: RouteRequest,
     wrap: boolean
 ): JSONValue {
+    const world = getWorld(state);
     const bodyObj = typeof req.body === 'object' && req.body !== null ? req.body as Record<string, unknown> : {};
+
     const newItem: Record<string, JSONValue> = {
         id: (bodyObj.id as string) || uuidv4(),
         ...bodyObj as Record<string, JSONValue>,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
     };
-    state[resource].push(newItem);
 
-    return wrap ? { success: true, data: newItem, message: 'Created successfully' } : newItem;
+    // Resolve FKs and register with world state
+    const resolved = resolveAndRegister(newItem, resource, world);
+    state[resource].push(resolved);
+
+    return wrap ? { success: true, data: resolved, message: 'Created successfully' } : resolved;
 }
 
 /**
@@ -202,6 +293,7 @@ function handlePut(
     req: RouteRequest,
     wrap: boolean
 ): JSONValue {
+    const world = getWorld(state);
     const index = state[resource].findIndex((i: JSONValue) =>
         typeof i === 'object' && i !== null && 'id' in i && i.id === req.params?.id
     );
@@ -218,13 +310,16 @@ function handlePut(
         updatedAt: new Date().toISOString()
     };
 
+    // Resolve FKs and register with world state
+    const resolved = resolveAndRegister(updatedItem, resource, world);
+
     if (index >= 0) {
-        state[resource][index] = updatedItem;
+        state[resource][index] = resolved;
     } else {
-        state[resource].push(updatedItem);
+        state[resource].push(resolved);
     }
 
-    return wrap ? { success: true, data: updatedItem } : updatedItem;
+    return wrap ? { success: true, data: resolved } : resolved;
 }
 
 /**

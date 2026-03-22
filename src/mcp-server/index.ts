@@ -62,6 +62,8 @@ class SchemockerMCPServer {
             return await this.handleCallEndpoint(args);
           case 'reload_schema':
             return await this.handleReloadSchema(args);
+          case 'world_snapshot':
+            return await this.handleWorldSnapshot(args);
           default:
             throw new Error(`Unknown tool: ${name}`);
         }
@@ -141,6 +143,24 @@ class SchemockerMCPServer {
             schemaPath: {
               type: 'string',
               description: 'Optional path to the schema file to reload (if not using the default schema)',
+            },
+          },
+        },
+      },
+      {
+        name: 'world_snapshot',
+        description: 'Returns a snapshot of all entities currently registered in the mock world — their IDs and key fields. Useful for understanding what data exists so you can write tests, generate code, or check referential integrity (e.g. "what user IDs exist so I can set authorId on a post?")',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            resource: {
+              type: 'string',
+              description: 'Optional: only return entities for a specific resource (e.g. "users", "posts"). If omitted, returns all resources.',
+            },
+            sample: {
+              type: 'boolean',
+              description: 'Whether to include sample field values for each entity (default: false — just IDs and type info). When true, includes a preview of each entity\'s key fields.',
+              default: false,
             },
           },
         },
@@ -318,6 +338,69 @@ class SchemockerMCPServer {
       const axiosError = error as any;
       throw new Error(
         `Failed to reload schema: ${axiosError.message}. The reload endpoint may not be available or Schemocker is not running at ${this.baseUrl}`
+      );
+    }
+  }
+
+  /**
+   * Handles the world_snapshot tool call.
+   * Returns all entities currently registered in the mock world,
+   * with their IDs and key fields, so AIs can understand what data
+   * exists for writing tests or code generation.
+   */
+  private async handleWorldSnapshot(args?: { resource?: string; sample?: boolean }) {
+    const { resource, sample = false } = args || {};
+
+    try {
+      const url = `${this.baseUrl}/__schemock/world`;
+      const response = await axios.get(url, { timeout: this.config.timeout });
+      const data = response.data as {
+        resources: string[];
+        entities: Record<string, string[]>;
+        totalEntities: number;
+      };
+
+      if (!data.resources || data.resources.length === 0) {
+        return {
+          content: [{
+            type: 'text',
+            text: JSON.stringify({
+              message: 'No entities in world yet. Make a GET/POST request first to populate the world.',
+              hint: 'Call an endpoint like GET /api/users first, then check world_snapshot again.'
+            }, null, 2)
+          }]
+        };
+      }
+
+      // Optionally filter by resource
+      const resources = resource
+        ? [resource.toLowerCase()].filter(r => data.resources.includes(r))
+        : data.resources;
+
+      const snapshot: Record<string, any> = {
+        totalEntities: data.totalEntities,
+        resources
+      };
+
+      for (const res of resources) {
+        const ids = data.entities[res] || [];
+        snapshot[res] = {
+          count: ids.length,
+          ids,
+          hint: `Found ${ids.length} ${res} in the world. Use these IDs when setting foreign keys.`
+        };
+      }
+
+      return {
+        content: [{
+          type: 'text',
+          text: JSON.stringify(snapshot, null, 2)
+        }]
+      };
+    } catch (error) {
+      const axiosError = error as any;
+      throw new Error(
+        `Failed to get world snapshot: ${axiosError.message}. Make sure Schemocker is running at ${this.baseUrl}`
       );
     }
   }

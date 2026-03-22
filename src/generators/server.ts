@@ -92,6 +92,22 @@ export class ServerGenerator {
 
     // Setup system routes (playground, health, share, gallery, etc.)
     setupSystemRoutes(this.app, this.config, this.version);
+
+    // World state introspection endpoint for MCP
+    this.app.get('/__schemock/world', (req, res) => {
+      const store = this.state as unknown as Record<string, unknown>;
+      const world = store['_world'];
+      if (world && typeof world === 'object' && 'getSnapshot' in world) {
+        const snapshot = (world as { getSnapshot(): Record<string, string[]> }).getSnapshot();
+        res.json({
+          resources: Object.keys(snapshot),
+          entities: snapshot,
+          totalEntities: Object.values(snapshot).reduce((sum, ids) => sum + ids.length, 0)
+        });
+      } else {
+        res.json({ resources: [], entities: {}, totalEntities: 0 });
+      }
+    });
   }
 
   /**
