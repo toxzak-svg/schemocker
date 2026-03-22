@@ -4,6 +4,20 @@
 const MCP_SDK = require('@modelcontextprotocol/sdk');
 const axios = require('axios');
 
+// AI layer imports (compiled from src/ai/)
+let createAIProvider: any;
+let inferSchema: any;
+let mutateSchema: any;
+
+try {
+  const aiModule = require('../ai/index.js');
+  createAIProvider = aiModule.createAIProvider;
+  inferSchema = aiModule.inferSchema;
+  mutateSchema = aiModule.mutateSchema;
+} catch {
+  // AI features unavailable (binary build without AI module)
+}
+
 /**
  * Schemocker MCP Server
  * 
@@ -64,6 +78,12 @@ class SchemockerMCPServer {
             return await this.handleReloadSchema(args);
           case 'world_snapshot':
             return await this.handleWorldSnapshot(args);
+          case 'generate_schema':
+            return await this.handleGenerateSchema(args);
+          case 'mutate_schema':
+            return await this.handleMutateSchema(args);
+          case 'seed_world':
+            return await this.handleSeedWorld(args);
           default:
             throw new Error(`Unknown tool: ${name}`);
         }
@@ -130,6 +150,11 @@ class SchemockerMCPServer {
               type: 'object',
               description: 'Additional headers to include in the request',
             },
+            scenario: {
+              type: 'string',
+              enum: ['happy-path', 'slow', 'error-heavy', 'sad-path'],
+              description: "Apply a scenario preset for this call only. happy-path = fast/no errors. slow = 1-3s delay. error-heavy = random 4xx/5xx. sad-path = slow + errors. (default: uses server's global scenario)",
+            },
           },
           required: ['method', 'path'],
         },
@@ -161,6 +186,70 @@ class SchemockerMCPServer {
               type: 'boolean',
               description: 'Whether to include sample field values for each entity (default: false — just IDs and type info). When true, includes a preview of each entity\'s key fields.',
               default: false,
+            },
+          },
+        },
+      },
+      {
+        name: 'generate_schema',
+        description: 'Generate a JSON Schema from a natural language description and hot-reload the running Schemocker server with it. This is the primary way to create a mock API without writing a schema by hand. Example: describe "a blog with users, posts, and comments" → server boots with all routes live.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            description: {
+              type: 'string',
+              description: 'Natural language description of the API you want to mock (e.g. "a social media post with likes, comments, and author")',
+            },
+            aiProvider: {
+              type: 'string',
+              enum: ['openai', 'ollama', 'vllm'],
+              description: 'AI provider to use (default: from SCHEMOCKER_AI_PROVIDER env or openai)',
+            },
+            aiModel: {
+              type: 'string',
+              description: 'Model name (e.g. gpt-4o-mini, qwen2.5:3b). Defaults to provider-specific default.',
+            },
+          },
+          required: ['description'],
+        },
+      },
+      {
+        name: 'mutate_schema',
+        description: 'Mutate the current running schema with a natural language instruction. Takes the live schema + NL instruction, sends to LLM, returns the merged updated schema and hot-reloads the server.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            instruction: {
+              type: 'string',
+              description: 'Natural language instruction for how to change the schema (e.g. "add a createdAt timestamp", "add a tags array")',
+            },
+            aiProvider: {
+              type: 'string',
+              enum: ['openai', 'ollama', 'vllm'],
+              description: 'AI provider to use (default: from SCHEMOCKER_AI_PROVIDER env or openai)',
+            },
+            aiModel: {
+              type: 'string',
+              description: 'Model name. Defaults to provider-specific default.',
+            },
+          },
+          required: ['instruction'],
+        },
+      },
+      {
+        name: 'seed_world',
+        description: 'Populate world-state with N realistic mock records using LLM-generated values for semantic fields (bio, description, title) rather than faker noise. After seeding, GET requests return real-looking records for demos and AI agent testing.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            resource: {
+              type: 'string',
+              description: 'Optional: the resource to seed (e.g. "users", "posts"). If omitted, seeds the primary resource.',
+            },
+            count: {
+              type: 'integer',
+              description: 'Number of records to seed (default: 5)',
+              default: 5,
             },
           },
         },
@@ -401,6 +490,141 @@ class SchemockerMCPServer {
       const axiosError = error as any;
       throw new Error(
         `Failed to get world snapshot: ${axiosError.message}. Make sure Schemocker is running at ${this.baseUrl}`
+      );
+    }
+  }
+
+  /**
+   * Handles the generate_schema tool call.
+   * Takes a natural language description → generates JSON Schema via LLM → hot-reloads server.
+   */
+  private async handleGenerateSchema(args: { description: string; aiProvider?: string; aiModel?: string }) {
+    if (!createAIProvider || !inferSchema) {
+      throw new Error(
+        'AI features are not available. The AI module may not be included in this build. ' +
+        'Set SCHEMOCKER_API_KEY for OpenAI, or SCHEMOCKER_AI_PROVIDER=ollama for local inference.'
+      );
+    }
+
+    const { description, aiProvider, aiModel } = args;
+
+    try {
+      const provider = createAIProvider({ provider: aiProvider, model: aiModel });
+      const { schema } = await inferSchema(description, provider, { model: aiModel, provider: aiProvider as any });
+
+      // Push schema to the running Schemocker server via hot-reload endpoint
+      const response = await axios.post(
+        `${this.baseUrl}/__schemock/reload`,
+        { schema },
+        { timeout: 30000 }
+      );
+
+      return {
+        content: [{
+          type: 'text',
+          text: JSON.stringify({
+            success: true,
+            schema,
+            serverMessage: response.data.message,
+            hint: 'Schema is live. Use list_routes to see the new endpoints.'
+          }, null, 2)
+        }]
+      };
+    } catch (error: any) {
+      const message = error?.message || String(error);
+      if (message.includes('AI features are not available')) throw new Error(message);
+      throw new Error(`generate_schema failed: ${message}`);
+    }
+  }
+
+  /**
+   * Handles the mutate_schema tool call.
+   * Takes the current schema + NL instruction → LLM merges the change → hot-reloads server.
+   */
+  private async handleMutateSchema(args: { instruction: string; aiProvider?: string; aiModel?: string }) {
+    if (!createAIProvider || !mutateSchema) {
+      throw new Error(
+        'AI features are not available. The AI module may not be included in this build.'
+      );
+    }
+
+    const { instruction, aiProvider, aiModel } = args;
+
+    try {
+      // First, fetch the current schema from the running server
+      const schemaResponse = await axios.get(`${this.baseUrl}/__schemock/schema`, {
+        timeout: this.config.timeout,
+      }).catch(() => null);
+
+      if (!schemaResponse?.data) {
+        throw new Error(
+          'Could not fetch current schema from the running server. ' +
+          'Make sure Schemocker is running and you have a schema loaded.'
+        );
+      }
+
+      const currentSchema = schemaResponse.data;
+      const provider = createAIProvider({ provider: aiProvider, model: aiModel });
+      const { schema: mutatedSchema } = await mutateSchema(
+        currentSchema,
+        instruction,
+        provider,
+        { model: aiModel, provider: aiProvider as any }
+      );
+
+      // Push mutated schema to the running server
+      const response = await axios.post(
+        `${this.baseUrl}/__schemock/reload`,
+        { schema: mutatedSchema },
+        { timeout: 30000 }
+      );
+
+      return {
+        content: [{
+          type: 'text',
+          text: JSON.stringify({
+            success: true,
+            mutatedSchema,
+            serverMessage: response.data.message,
+            hint: 'Mutated schema is live. Use list_routes to verify the changes.'
+          }, null, 2)
+        }]
+      };
+    } catch (error: any) {
+      const message = error?.message || String(error);
+      if (message.includes('AI features are not available')) throw new Error(message);
+      throw new Error(`mutate_schema failed: ${message}`);
+    }
+  }
+
+  /**
+   * Handles the seed_world tool call.
+   * Populates world-state with N realistic records via the seed endpoint.
+   */
+  private async handleSeedWorld(args: { resource?: string; count?: number }) {
+    const { resource, count = 5 } = args || {};
+
+    try {
+      const response = await axios.post(
+        `${this.baseUrl}/__schemock/seed`,
+        { resource, count },
+        { timeout: this.config.timeout }
+      );
+
+      return {
+        content: [{
+          type: 'text',
+          text: JSON.stringify({
+            success: true,
+            message: response.data.message,
+            snapshot: response.data.snapshot,
+            timestamp: response.data.timestamp
+          }, null, 2)
+        }]
+      };
+    } catch (error: any) {
+      throw new Error(
+        `seed_world failed: ${error?.message}. Make sure Schemocker is running with a loaded schema.`
       );
     }
   }

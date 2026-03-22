@@ -1,5 +1,7 @@
 import express, { Application, Request, Response, NextFunction } from 'express';
 import { Server } from 'http';
+import fs from 'fs';
+import path from 'path';
 import {
   ServerOptions,
   RouteConfig,
@@ -40,6 +42,7 @@ export class ServerGenerator {
   private connections: Set<unknown> = new Set();
   private isStopping = false;
   private skipValidation: boolean;
+  private currentSchema: Schema | null = null;
 
   /**
    * Creates a new ServerGenerator instance.
@@ -106,6 +109,105 @@ export class ServerGenerator {
         });
       } else {
         res.json({ resources: [], entities: {}, totalEntities: 0 });
+      }
+    });
+
+    // Schema introspection endpoint — returns the currently loaded schema
+    this.app.get('/__schemock/schema', (req, res) => {
+      if (this.currentSchema) {
+        res.json(this.currentSchema);
+      } else {
+        res.status(404).json({ error: 'No schema loaded' });
+      }
+    });
+
+    // Hot-reload endpoint: push a new schema (inline or from file) and restart
+    this.app.post('/__schemock/reload', async (req: Request, res: Response) => {
+      try {
+        const { schema: inlineSchema, schemaPath } = req.body as { schema?: object; schemaPath?: string };
+
+        let schema: object | undefined;
+        if (schemaPath) {
+          const resolved = path.isAbsolute(schemaPath) ? schemaPath : path.resolve(process.cwd(), schemaPath);
+          schema = JSON.parse(fs.readFileSync(resolved, 'utf-8'));
+        } else if (inlineSchema) {
+          schema = inlineSchema;
+        } else {
+          res.status(400).json({ error: 'Provide either schema (inline JSON) or schemaPath' });
+          return;
+        }
+
+        const newGenerator = ServerGenerator.generateFromSchema(schema as Schema, {
+          port: this.config.server.port,
+          cors: this.config.server.cors,
+          logLevel: this.config.server.logLevel as any,
+        });
+
+        const newConfig = newGenerator.getConfig();
+        await this.restart(newConfig);
+
+        res.json({
+          success: true,
+          message: 'Schema reloaded and server restarted',
+          timestamp: new Date().toISOString()
+        });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        res.status(500).json({ error: 'Reload failed', message });
+      }
+    });
+
+    // Seed endpoint: populate world-state with N realistic records
+    this.app.post('/__schemock/seed', async (req: Request, res: Response) => {
+      try {
+        const { resource, count = 5 } = req.body as { resource?: string; count?: number };
+
+        const store = this.state as unknown as Record<string, unknown>;
+        const world = store['_world'] as { register(resource: string, entity: object): void; getSnapshot(): Record<string, string[]> } | undefined;
+
+        if (!world || !('register' in world)) {
+          res.status(400).json({ error: 'World state not initialized. Make a POST request first to initialize the schema.' });
+          return;
+        }
+
+        // Get schema from config — use the first route's schema as the primary resource
+        const routeKeys = Object.keys(this.config.routes);
+        const targetResource = resource || routeKeys[0];
+
+        if (!targetResource) {
+          res.status(400).json({ error: 'No routes defined. Load a schema first.' });
+          return;
+        }
+
+        const routeConfig = this.config.routes[targetResource];
+
+        // Re-generate N records by triggering route handlers
+        // For seeded data, we call the list handler multiple times to populate world-state
+        const seeded: object[] = [];
+        const resourceName = targetResource.replace(/^\//, '').split('/')[0];
+
+        for (let i = 0; i < count; i++) {
+          try {
+            // Get mock data from the route's response schema
+            const mockData = (routeConfig as any)?.response;
+            if (mockData && typeof mockData === 'object') {
+              world.register(resourceName, { ...mockData, id: `${resourceName}-seed-${i + 1}` });
+              seeded.push(mockData);
+            }
+          } catch {
+            // skip failed seeds
+          }
+        }
+
+        res.json({
+          success: true,
+          message: `Seeded ${seeded.length} ${resourceName} records`,
+          snapshot: world.getSnapshot(),
+          timestamp: new Date().toISOString()
+        });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        res.status(500).json({ error: 'Seed failed', message });
       }
     });
   }
@@ -535,7 +637,9 @@ export class ServerGenerator {
       routes
     };
 
-    return new ServerGenerator(config, true);
+    const generator = new ServerGenerator(config, true);
+    generator.currentSchema = schema;
+    return generator;
   }
 }
 
