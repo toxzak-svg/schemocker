@@ -1,6 +1,7 @@
 import { v4 as uuidv4 } from 'uuid';
 import { SchemaParser } from '../parsers/schema';
 import { WorldState, detectForeignKey, isIdField } from './world-state';
+import { enrichField, isSemanticField } from './field-enricher';
 import {
     RouteConfig,
     RouteRequest,
@@ -194,6 +195,48 @@ function handleGetById(
 }
 
 /**
+ * Asynchronously enriches stored records with AI-generated semantic content.
+ * Runs in the background — does not block the response.
+ * The next GET request will return enriched data from state.
+ */
+function backgroundEnrichRecords(
+    state: ServerState,
+    resource: string,
+    mainSchema: Schema
+): void {
+    const records = state[resource];
+    if (!records || records.length === 0) return;
+
+    // Check if AI is likely configured before firing off async work
+    const sample = records[0];
+    if (typeof sample !== 'object' || sample === null) return;
+
+    const hasSemanticFields = Object.keys(sample as Record<string, JSONValue>).some(k => isSemanticField(k));
+    if (!hasSemanticFields) return;
+
+    // Fire and forget — enrich in background, don't block response
+    (async () => {
+        try {
+            for (const record of records) {
+                if (typeof record !== 'object' || record === null) continue;
+                const obj = record as Record<string, JSONValue>;
+                for (const key of Object.keys(obj)) {
+                    if (typeof obj[key] === 'string' && isSemanticField(key)) {
+                        const enriched = await enrichField(key, obj as Record<string, unknown>);
+                        if (enriched) {
+                            obj[key] = enriched;
+                        }
+                    }
+                }
+            }
+        } catch (err) {
+            // Silently ignore enrichment errors — faker data is still valid
+            console.warn(`Background enrichment failed for ${resource}: ${err instanceof Error ? err.message : String(err)}`);
+        }
+    })();
+}
+
+/**
  * Handles GET request for a collection of items
  *
  * @param state - The server state containing stored resources
@@ -236,6 +279,10 @@ function handleGetCollection(
             }
         }
     }
+
+    // Kick off background AI enrichment — does not block the response
+    // The next GET request will return enriched (AI-generated) values
+    backgroundEnrichRecords(state, resource, mainSchema);
 
     return wrap ? {
         success: true,
