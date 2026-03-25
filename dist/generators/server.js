@@ -6,6 +6,8 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.ServerGenerator = void 0;
 exports.createMockServer = createMockServer;
 const express_1 = __importDefault(require("express"));
+const fs_1 = __importDefault(require("fs"));
+const path_1 = __importDefault(require("path"));
 const errors_1 = require("../errors");
 const logger_1 = require("../utils/logger");
 const validation_1 = require("../utils/validation");
@@ -35,6 +37,7 @@ class ServerGenerator {
         this.version = require('../../package.json').version;
         this.connections = new Set();
         this.isStopping = false;
+        this.currentSchema = null;
         // Validate configuration at startup (addresses issue 8.2)
         // Skip validation for internally-generated configs to maintain backward compatibility
         this.skipValidation = skipValidation;
@@ -73,6 +76,112 @@ class ServerGenerator {
         });
         // Setup system routes (playground, health, share, gallery, etc.)
         (0, route_setup_1.setupSystemRoutes)(this.app, this.config, this.version);
+        // World state introspection endpoint for MCP
+        this.app.get('/__schemock/world', (req, res) => {
+            const store = this.state;
+            const world = store['_world'];
+            if (world && typeof world === 'object' && 'getSnapshot' in world) {
+                const snapshot = world.getSnapshot();
+                res.json({
+                    resources: Object.keys(snapshot),
+                    entities: snapshot,
+                    totalEntities: Object.values(snapshot).reduce((sum, ids) => sum + ids.length, 0)
+                });
+            }
+            else {
+                res.json({ resources: [], entities: {}, totalEntities: 0 });
+            }
+        });
+        // Schema introspection endpoint — returns the currently loaded schema
+        this.app.get('/__schemock/schema', (req, res) => {
+            if (this.currentSchema) {
+                res.json(this.currentSchema);
+            }
+            else {
+                res.status(404).json({ error: 'No schema loaded' });
+            }
+        });
+        // Hot-reload endpoint: push a new schema (inline or from file) and restart
+        this.app.post('/__schemock/reload', async (req, res) => {
+            try {
+                const { schema: inlineSchema, schemaPath } = req.body;
+                let schema;
+                if (schemaPath) {
+                    const resolved = path_1.default.isAbsolute(schemaPath) ? schemaPath : path_1.default.resolve(process.cwd(), schemaPath);
+                    schema = JSON.parse(fs_1.default.readFileSync(resolved, 'utf-8'));
+                }
+                else if (inlineSchema) {
+                    schema = inlineSchema;
+                }
+                else {
+                    res.status(400).json({ error: 'Provide either schema (inline JSON) or schemaPath' });
+                    return;
+                }
+                const newGenerator = ServerGenerator.generateFromSchema(schema, {
+                    port: this.config.server.port,
+                    cors: this.config.server.cors,
+                    logLevel: this.config.server.logLevel,
+                });
+                const newConfig = newGenerator.getConfig();
+                await this.restart(newConfig);
+                res.json({
+                    success: true,
+                    message: 'Schema reloaded and server restarted',
+                    timestamp: new Date().toISOString()
+                });
+            }
+            catch (error) {
+                const message = error instanceof Error ? error.message : String(error);
+                res.status(500).json({ error: 'Reload failed', message });
+            }
+        });
+        // Seed endpoint: populate world-state with N realistic records
+        this.app.post('/__schemock/seed', async (req, res) => {
+            try {
+                const { resource, count = 5 } = req.body;
+                const store = this.state;
+                const world = store['_world'];
+                if (!world || !('register' in world)) {
+                    res.status(400).json({ error: 'World state not initialized. Make a POST request first to initialize the schema.' });
+                    return;
+                }
+                // Get schema from config — use the first route's schema as the primary resource
+                const routeKeys = Object.keys(this.config.routes);
+                const targetResource = resource || routeKeys[0];
+                if (!targetResource) {
+                    res.status(400).json({ error: 'No routes defined. Load a schema first.' });
+                    return;
+                }
+                const routeConfig = this.config.routes[targetResource];
+                // Re-generate N records by triggering route handlers
+                // For seeded data, we call the list handler multiple times to populate world-state
+                const seeded = [];
+                const resourceName = targetResource.replace(/^\//, '').split('/')[0];
+                for (let i = 0; i < count; i++) {
+                    try {
+                        // Get mock data from the route's response schema
+                        const mockData = routeConfig?.response;
+                        if (mockData && typeof mockData === 'object') {
+                            world.register(resourceName, { ...mockData, id: `${resourceName}-seed-${i + 1}` });
+                            seeded.push(mockData);
+                        }
+                    }
+                    catch {
+                        // skip failed seeds
+                    }
+                }
+                res.json({
+                    success: true,
+                    message: `Seeded ${seeded.length} ${resourceName} records`,
+                    snapshot: world.getSnapshot(),
+                    timestamp: new Date().toISOString()
+                });
+            }
+            catch (error) {
+                const message = error instanceof Error ? error.message : String(error);
+                res.status(500).json({ error: 'Seed failed', message });
+            }
+        });
     }
     /**
      * Configures a single route on the Express application.
@@ -468,7 +577,9 @@ class ServerGenerator {
             },
             routes
         };
-        return new ServerGenerator(config, true);
+        const generator = new ServerGenerator(config, true);
+        generator.currentSchema = schema;
+        return generator;
     }
 }
 exports.ServerGenerator = ServerGenerator;

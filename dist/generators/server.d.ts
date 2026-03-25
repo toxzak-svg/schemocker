@@ -16,6 +16,7 @@ export declare class ServerGenerator {
     private connections;
     private isStopping;
     private skipValidation;
+    private currentSchema;
     /**
      * Creates a new ServerGenerator instance.
      *

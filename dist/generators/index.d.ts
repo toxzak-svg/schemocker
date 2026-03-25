@@ -18,3 +18,4 @@ export declare function createMockServer(config: {
 }): ServerGenerator;
 export * from './server';
 export * from './routes';
+export { WorldState, detectForeignKey, isIdField } from './world-state';

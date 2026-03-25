@@ -7,6 +7,7 @@ const cache_1 = require("../utils/cache");
 const constants_1 = require("../utils/constants");
 const random_1 = require("../utils/random");
 const config_1 = require("../utils/config");
+const field_enricher_1 = require("../generators/field-enricher");
 // Create a singleton cache for parsed schemas
 const schemaCache = new cache_1.LRUCache({
     maxSize: constants_1.DEFAULT_CACHE_SIZE,
@@ -118,6 +119,54 @@ class SchemaParser {
             schemaCache.set(cacheKey, result);
         }
         return result;
+    }
+    /**
+     * Parse and enrich semantic string fields with AI-generated content.
+     *
+     * Calls parse() first, then walks the result and replaces string fields
+     * whose names suggest semantic content (bio, description, comment, etc.)
+     * with AI-generated values.
+     *
+     * @param schema - The schema to parse
+     * @param rootSchema - Root schema for $ref resolution
+     * @param strict - Whether to enforce strict validation
+     * @returns Parsed mock data with semantic fields enriched via AI
+     */
+    static async parseWithEnrichment(schema, rootSchema, strict = false) {
+        const result = this.parse(schema, rootSchema, new Set(), strict);
+        await this.enrichSemanticFields(result);
+        return result;
+    }
+    /**
+     * Walk a parsed result and enrich any semantic string fields with AI content.
+     * Recursively handles nested objects and arrays.
+     */
+    static async enrichSemanticFields(value) {
+        if (typeof value === 'string')
+            return;
+        if (Array.isArray(value)) {
+            await Promise.all(value.map(item => this.enrichSemanticFields(item)));
+            return;
+        }
+        if (typeof value !== 'object' || value === null)
+            return;
+        const obj = value;
+        const enrichmentPromises = [];
+        for (const [key, fieldValue] of Object.entries(obj)) {
+            if (typeof fieldValue === 'string' && (0, field_enricher_1.isSemanticField)(key)) {
+                // Kick off async enrichment for this field
+                enrichmentPromises.push((0, field_enricher_1.enrichField)(key, obj).then(enriched => {
+                    if (enriched !== null) {
+                        obj[key] = enriched;
+                    }
+                }));
+            }
+            else {
+                // Recurse into nested structures
+                enrichmentPromises.push(this.enrichSemanticFields(fieldValue));
+            }
+        }
+        await Promise.all(enrichmentPromises);
     }
     /**
      * Parses a schema based on its type

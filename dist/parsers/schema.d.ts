@@ -55,6 +55,24 @@ export declare class SchemaParser {
      */
     static parse(schema: Schema, rootSchema?: Schema, visited?: Set<string>, strict?: boolean, propertyName?: string, useCache?: boolean): NonNullJSONValue;
     /**
+     * Parse and enrich semantic string fields with AI-generated content.
+     *
+     * Calls parse() first, then walks the result and replaces string fields
+     * whose names suggest semantic content (bio, description, comment, etc.)
+     * with AI-generated values.
+     *
+     * @param schema - The schema to parse
+     * @param rootSchema - Root schema for $ref resolution
+     * @param strict - Whether to enforce strict validation
+     * @returns Parsed mock data with semantic fields enriched via AI
+     */
+    static parseWithEnrichment(schema: Schema, rootSchema?: Schema, strict?: boolean): Promise<NonNullJSONValue>;
+    /**
+     * Walk a parsed result and enrich any semantic string fields with AI content.
+     * Recursively handles nested objects and arrays.
+     */
+    private static enrichSemanticFields;
+    /**
      * Parses a schema based on its type
      *
      * Delegates to the appropriate generator method based on the schema type.

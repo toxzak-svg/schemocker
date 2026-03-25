@@ -14,6 +14,7 @@ var __exportStar = (this && this.__exportStar) || function(m, exports) {
     for (var p in m) if (p !== "default" && !Object.prototype.hasOwnProperty.call(exports, p)) __createBinding(exports, m, p);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.isIdField = exports.detectForeignKey = exports.WorldState = void 0;
 exports.generateMockServer = generateMockServer;
 exports.createMockServer = createMockServer;
 const server_1 = require("./server");
@@ -36,4 +37,8 @@ function createMockServer(config) {
 }
 __exportStar(require("./server"), exports);
 __exportStar(require("./routes"), exports);
+var world_state_1 = require("./world-state");
+Object.defineProperty(exports, "WorldState", { enumerable: true, get: function () { return world_state_1.WorldState; } });
+Object.defineProperty(exports, "detectForeignKey", { enumerable: true, get: function () { return world_state_1.detectForeignKey; } });
+Object.defineProperty(exports, "isIdField", { enumerable: true, get: function () { return world_state_1.isIdField; } });
 //# sourceMappingURL=index.js.map
