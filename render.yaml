@@ -1,0 +1,37 @@
+# Render Blueprint — Schemocker API Server
+# Deploy with: render deploy --token=<RENDER_API_KEY>
+
+services:
+  - type: web
+    name: schemocker-api
+    runtime: node
+    region: oregon
+    plan: starter
+    buildCommand: cd server && npm install && npm run build
+    startCommand: cd server && npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3001
+      - key: CORS_ORIGIN
+        value: https://schemocker.com
+      - key: STRIPE_PUBLISHABLE_KEY
+        sync: false
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: STRIPE_PRICE_ID
+        sync: false
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false
+      - key: STRIPE_SUCCESS_URL
+        value: https://schemocker.com/dashboard?success=true
+      - key: STRIPE_CANCEL_URL
+        value: https://schemocker.com/pricing?canceled=true
+      - key: NIM_API_KEY
+        sync: false
+      - key: NIM_BASE_URL
+        value: https://integrate.api.nvidia.com/v1
+      - key: NIM_MODEL
+        value: meta/llama-3.1-8b-instruct

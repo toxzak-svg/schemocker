@@ -44,24 +44,48 @@ function addWatermark(schema: Record<string, any>, apiKeyInfo: any): Record<stri
  * Call NIM API
  */
 async function callNIM(prompt: string, model?: string): Promise<string> {
-  const response = await axios.post(
-    `${config.nimBaseUrl}/chat/completions`,
-    {
-      model: model || config.nimModel,
-      messages: [{ role: 'user', content: prompt }],
-      max_tokens: 1024,
-      temperature: 0.7,
-    },
-    {
-      headers: {
-        Authorization: `Bearer ${config.nimApiKey}`,
-        'Content-Type': 'application/json',
+  try {
+    const response = await axios.post(
+      `${config.nimBaseUrl}/chat/completions`,
+      {
+        model: model || config.nimModel,
+        messages: [
+          {
+            role: 'system',
+            content: 'You are a JSON Schema expert. Only respond with valid JSON. No markdown, no explanation, no backticks. The JSON must be parseable by JSON.parse().'
+          },
+          { role: 'user', content: prompt }
+        ],
+        max_tokens: 1024,
+        temperature: 0.7,
       },
-      timeout: 60000,
-    }
-  );
+      {
+        headers: {
+          Authorization: `Bearer ${config.nimApiKey}`,
+          'Content-Type': 'application/json',
+        },
+        timeout: 60000,
+      }
+    );
 
-  return response.data.choices?.[0]?.message?.content || '';
+    const content = response.data.choices?.[0]?.message?.content || '';
+
+    if (!content) {
+      throw new Error('NIM returned empty response');
+    }
+
+    return content;
+  } catch (error: any) {
+    if (error.response) {
+      const status = error.response.status;
+      const msg = error.response.data?.error?.message || error.response.statusText;
+
+      if (status === 401) throw new Error(`NIM auth failed: ${msg}`);
+      if (status === 429) throw new Error(`NIM rate limited`);
+      if (status >= 500) throw new Error(`NIM server error: ${msg}`);
+    }
+    throw error;
+  }
 }
 
 /**
@@ -114,7 +138,10 @@ Return ONLY the JSON Schema as a valid JSON object. No markdown, no explanation,
     });
   } catch (error: any) {
     console.error('Schema generation error:', error?.message);
-    res.status(500).json({ error: 'GENERATION_ERROR', message: 'Failed to generate schema' });
+    const message = error?.message?.includes('NIM')
+      ? error.message
+      : 'Failed to generate schema. Please try again.';
+    res.status(500).json({ error: 'GENERATION_ERROR', message });
   }
 });
 
@@ -164,7 +191,10 @@ Return ONLY the mutated JSON Schema as a valid JSON object. No markdown, no expl
     });
   } catch (error: any) {
     console.error('Schema mutation error:', error?.message);
-    res.status(500).json({ error: 'MUTATION_ERROR', message: 'Failed to mutate schema' });
+    const message = error?.message?.includes('NIM')
+      ? error.message
+      : 'Failed to mutate schema. Please try again.';
+    res.status(500).json({ error: 'MUTATION_ERROR', message });
   }
 });
 

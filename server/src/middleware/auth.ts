@@ -81,11 +81,18 @@ export function registerApiKey(tier: 'free' | 'pro' = 'free', stripeCustomerId?:
   return info;
 }
 
-export function upgradeToPro(apiKey: string, stripeCustomerId: string): boolean {
+export function upgradeToPro(apiKey: string, stripeCustomerId?: string): boolean {
   const info = apiKeys.get(apiKey);
   if (!info) return false;
   info.tier = 'pro';
-  info.stripeCustomerId = stripeCustomerId;
+  if (stripeCustomerId) info.stripeCustomerId = stripeCustomerId;
+  return true;
+}
+
+export function downgradeToFree(apiKey: string): boolean {
+  const info = apiKeys.get(apiKey);
+  if (!info) return false;
+  info.tier = 'free';
   return true;
 }
 

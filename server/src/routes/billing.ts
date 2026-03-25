@@ -13,7 +13,7 @@ import { config } from '../config.js';
 import { registerApiKey, upgradeToPro, isValidApiKey } from '../middleware/auth.js';
 import { customerToApiKeys } from '../store.js';
 
-const stripe = new Stripe(config.stripeSecretKey, { apiVersion: '2025-01-27.acacia' });
+const stripe = new Stripe(config.stripeSecretKey, { apiVersion: '2024-12-18.acacia' });
 
 export const billingRouter = Router();
 
@@ -25,11 +25,17 @@ billingRouter.post('/checkout', async (req: Request, res: Response) => {
   try {
     const { priceId, successUrl, cancelUrl, customerId } = req.body;
 
+    const selectedPriceId = priceId || config.stripePriceId;
+    if (!selectedPriceId) {
+      res.status(500).json({ error: 'CONFIG_ERROR', message: 'No Stripe price ID configured' });
+      return;
+    }
+
     const sessionParams: Stripe.Checkout.SessionCreateParams = {
       mode: 'subscription',
       line_items: [
         {
-          price: priceId || config.stripePriceId,
+          price: selectedPriceId,
           quantity: 1,
         },
       ],
@@ -37,6 +43,10 @@ billingRouter.post('/checkout', async (req: Request, res: Response) => {
       cancel_url: cancelUrl || config.stripeCancelUrl,
       allow_promotion_codes: true,
       billing_address_collection: 'auto',
+      metadata: {
+        // Pass a hint that keys should be upgraded once webhook fires
+        tier: 'pro',
+      },
     };
 
     if (customerId) {
